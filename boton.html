@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Enviar mensaje</title>
+  <style>
+    html, body { height: 100%; margin: 0; }
+    body { display: grid; place-items: center; background: #111; }
+    button {
+      font-size: 28px;
+      padding: 24px 48px;
+      border: 0;
+      border-radius: 16px;
+      background: #25d366;
+      color: #fff;
+    }
+    button:active { transform: scale(0.96); }
+  </style>
+</head>
+<body>
+  <button id="btn">Enviar</button>
+  <script>
+    const numero = "5493482695552";
+    const mensaje = "te extraño";
+    document.getElementById("btn").onclick = () => {
+      window.location.href =
+        "https://wa.me/" + numero + "?text=" + encodeURIComponent(mensaje);
+    };
+  </script>
+</body>
+</html>

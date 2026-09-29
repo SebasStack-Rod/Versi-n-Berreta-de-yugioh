@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0b0e16">
+<title>Duel Simple</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main class="game">
+  <header>
+    <h1>⚔️ Duel <span>Simple</span></h1>
+    <div class="tools">
+      <button id="logBtn" title="Historial">📜</button>
+      <button id="muteBtn" title="Sonido">🔊</button>
+      <button id="restartBtn" title="Reiniciar">↺</button>
+    </div>
+  </header>
+
+  <section class="player" id="top">
+    <div class="pinfo"><b class="name"></b><span class="cnt"></span>
+      <div class="lpbox"><i class="bar"></i><span class="lp"></span></div></div>
+    <div class="hand"></div>
+    <div class="traps"></div>
+    <div class="field"></div>
+  </section>
+
+  <section class="mid">
+    <div class="chips" id="chips"></div>
+    <div id="msg"></div>
+  </section>
+
+  <section class="player" id="bot">
+    <div class="pinfo"><b class="name"></b><span class="cnt"></span>
+      <div class="lpbox"><i class="bar"></i><span class="lp"></span></div></div>
+    <div class="field"></div>
+    <div class="traps"></div>
+    <div class="hand"></div>
+  </section>
+
+  <section class="dock">
+    <div id="detail"></div>
+    <div id="actions"></div>
+    <div class="main-btns">
+      <button id="battleBtn">Ir a batalla</button>
+      <button id="endBtn">Terminar turno</button>
+    </div>
+  </section>
+</main>
+
+<aside id="logPanel" hidden><ol></ol></aside>
+<div id="curtain" hidden></div>
+<script src="script.js"></script>
+</body>
+</html>
