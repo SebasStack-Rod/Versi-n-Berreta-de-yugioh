@@ -1,5 +1,5 @@
 'use strict';
-const LP0=8000,HAND0=5,SLOTS=5,HLIM=6,KEY='duel-simple-v2';
+const LP0=8000,HAND0=5,SLOTS=5,HLIM=6,KEY='duel-simple-v3';
 // [nombre, atributo, clase, nivel, ATK, DEF, clave de efecto, texto del efecto]
 const D=[
 ['Des Volstgalph','Tierra','Dragón',5,2200,1700,'volst','Si destruye un monstruo en batalla y lo envía al Cementerio, inflige 500 de daño al rival. (Su bono de ATK por Hechizos Normales/Juego Rápido no aplica: este mazo no tiene hechizos.)'],
@@ -81,13 +81,13 @@ function msg(t){G.log.unshift(`T${G.n}: ${t}`);G.log.length=Math.min(G.log.lengt
 function win(w,why){if(G.over)return;G.over={w,why};msg(`Gana el Jugador ${w+1}. ${why}`);snd(880,.5)}
 function lp(pi,d){const p=P(pi);p.lp=Math.max(0,p.lp+d);fx(pi,d);if(!p.lp)win(1-pi,`El Jugador ${pi+1} llegó a 0 LP.`)}
 function fx(pi,d){const h=$(pi===G.turn?'#hudB':'#hudT'),f=el('div','fl '+(d<0?'neg':'pos'),(d>0?'+':'')+d);h.append(f);setTimeout(()=>f.remove(),1200);
-  if(d<0){$('#mat').classList.remove('shake');void $('#mat').offsetWidth;$('#mat').classList.add('shake');snd(200,.25,'sawtooth')}else snd(700)}
+  if(d<0){$('#board').classList.remove('shake');void $('#board').offsetWidth;$('#board').classList.add('shake');snd(200,.25,'sawtooth')}else snd(700)}
 function kill(pi,i,by){const p=P(pi),m=p.field[i];p.field[i]=null;p.grave.push(m);
   if(by&&by.id==1){msg('Des Volstgalph inflige 500 de daño extra.');lp(pi,-500)}}
 function hit(pi,d,by,t){lp(pi,-d);msg(`${t} ${d} de daño.`);
   if(by&&by.id==19&&P(pi).hand.length&&!G.over){const p=P(pi),r=p.hand.splice(Math.random()*p.hand.length|0,1)[0];p.grave.push(r);msg(`Sombrero Mágico Blanco: el rival descarta ${nm(r)}.`)}}
 
-function summon(h,pos){
+function summon(h,pos,slot){
   if(busy()||G.phase=='battle')return;
   const c=cd(me().hand[h]);
   if(c.k=='valk')return say('Valkyrion solo se Invoca de Modo Especial.');
@@ -96,10 +96,10 @@ function summon(h,pos){
   if(nd>fr)return say(`Necesitás ${nd} monstruo(s) en tu campo para tributar.`);
   if(!nd&&fr>=SLOTS)return say('Tu campo está lleno.');
   if(nd){G.mode={k:'trib',h,pos,nd,sel:[]};G.sel=null;return ui()}
-  place(h,pos,[])}
-function place(h,pos,tr){const p=me(),c=p.hand.splice(h,1)[0];
+  place(h,pos,[],slot)}
+function place(h,pos,tr,slot){const p=me(),c=p.hand.splice(h,1)[0];
   tr.forEach(i=>{p.grave.push(p.field[i]);p.field[i]=null});
-  const i=p.field.indexOf(null);
+  const i=slot!=null&&!p.field[slot]?slot:p.field.indexOf(null);
   p.field[i]={id:c.id,u:c.u,pos:pos=='a'?'a':'d',fd:pos=='s',atkd:false,moved:false,t:G.n};
   G.summoned=true;G.fresh=c.u;G.mode=null;G.sel={z:'f',pi:G.turn,i};snd(440);
   msg(`Jugador ${G.turn+1} ${pos=='a'?'invoca a '+C[c.id-1].n+(tr.length?' (tributo)':''):'coloca un monstruo boca abajo'}.`);ui()}
@@ -158,71 +158,90 @@ function zoneClick(sd,i){
     if(s.length==G.mode.nd)return place(G.mode.h,G.mode.pos,s);return ui()}
   if(k=='clown'&&pi!=G.turn&&m){G.mode=null;msg(`Payaso del Sueño destruye a ${nm(m)}.`);kill(pi,i);snd(200,.3,'sawtooth');return ui()}
   if(k=='atk'&&pi!=G.turn&&m)return attack(G.mode.i,i);
+  if(!m&&pi==G.turn&&!k&&G.phase!='battle'&&G.sel&&G.sel.z=='h'){const c=me().hand[G.sel.i];if(c&&cd(c).k!='valk')return summon(G.sel.i,'a',i)}
   G.sel=m?{z:'f',pi,i}:null;G.mode=k=='disc'?G.mode:null;ui()}
 
 // ===== Interfaz =====
-function buildMat(){
-  const MW=552,MH=391,CW=46,CH=62,mat=$('#mat');
-  const pos=([x,y],f)=>{if(f){x=MW-x;y=MH-y}return`left:${(x-CW/2)/MW*100}%;top:${(y-CH/2)/MH*100}%;width:${CW/MW*100}%;height:${CH/MH*100}%`};
-  ['b','t'].forEach(sd=>{const f=sd=='t',s=Z[sd]={m:[]};
-    [180,230,280,330,380].forEach((x,i)=>{const z=el('div','z '+sd);z.style.cssText=pos([x,287],f);z.onclick=()=>zoneClick(sd,i);mat.append(z);s.m.push(z)});
-    s.deck=el('div','z '+sd);s.deck.style.cssText=pos([430,352],f);mat.append(s.deck);
-    s.gy=el('div','z '+sd);s.gy.style.cssText=pos([472,287],f);s.gy.onclick=()=>openGy(sd);mat.append(s.gy)})}
-function openGy(sd){const pi=sd=='b'?G.turn:1-G.turn,g=P(pi).grave,v=$('#gyv');
+const TOL=10,LPMS=400,pIdx=sd=>sd=='b'?G.turn:1-G.turn;
+function buildBoard(){
+  const B=$('#board');B.innerHTML='';
+  const cell=(c,r,col)=>{const z=el('div','z '+c);z.style.gridArea=r+'/'+col;B.append(z);return z};
+  ['t','b'].forEach(sd=>{const t=sd=='t',s=Z[sd]={m:[]},rm=t?2:4,rs=t?1:5;
+    for(let i=0;i<SLOTS;i++){const z=cell('mz '+sd,rm,i+2);press(z,()=>zcard(sd,i),()=>zoneClick(sd,i));s.m.push(z);cell('sz '+sd,rs,i+2)}
+    s.gy=cell('u gy '+sd,rm,t?1:7);s.dk=cell('u dk '+sd,rs,t?1:7);cell('u fs '+sd,rm,t?7:1);cell('u ed '+sd,rs,t?7:1);
+    press(s.gy,()=>topGrave(sd),()=>openGy(sd))});
+  cell('xz',3,3);cell('xz',3,5)}
+function zcard(sd,i){const pi=pIdx(sd),m=P(pi).field[i];return m&&(!m.fd||pi==G.turn)?{c:m,pi,f:true}:null}
+function topGrave(sd){const pi=pIdx(sd),g=P(pi).grave;return g.length?{c:g[g.length-1],pi,f:false}:null}
+function openGy(sd){const pi=pIdx(sd),g=P(pi).grave,v=$('#gyv');
   v.innerHTML=`<h3>Cementerio del Jugador ${pi+1} (${g.length})</h3><div class="g"></div><p><button>Cerrar</button></p>`;
-  g.forEach((c,i)=>{const im=el('img');im.src=img(c.id);im.onclick=()=>{G.sel={z:'g',pi,i};v.hidden=true;ui()};$('.g',v).append(im)});
+  g.forEach(c=>{const w=el('div','gc',`<img src="${img(c.id)}">`);press(w,()=>({c,pi,f:false}),()=>{});$('.g',v).append(w)});
   $('button',v).onclick=()=>v.hidden=true;v.hidden=false}
-function selCard(){const s=G.sel;if(!s)return null;
-  if(s.z=='h'){const c=me().hand[s.i];return c&&{c,pi:G.turn}}
-  if(s.z=='f'){const c=P(s.pi).field[s.i];return c&&{c,pi:s.pi,fd:c.fd&&s.pi!=G.turn}}
-  const c=P(s.pi).grave[s.i];return c&&{c,pi:s.pi}}
+function showZoom(o){const c=cd(o.c),a=o.f?atk(o.pi,o.c):c.a,z=$('#zoom');
+  z.innerHTML=`<img src="${img(o.c.id)}"><div class="zt"><h2>${c.n}</h2><p class="mt">${c.at} · ${c.ra}${o.f&&o.c.fd?' · Boca abajo':''}</p><div class="lv">${'★'.repeat(c.lv)}</div><div class="sx"><span>ATK<b>${a}</b></span><span>DEF<b>${c.d}</b></span><span>NIVEL<b>${c.lv}</b></span></div><p class="fx">${c.x||'Monstruo Normal, sin efecto.'}</p></div>`;
+  z.hidden=false;void z.offsetWidth;z.classList.add('on')}
+function hideZoom(){const z=$('#zoom');z.classList.remove('on');setTimeout(()=>{if(!z.classList.contains('on'))z.hidden=true},260)}
+const canDrag=h=>!busy()&&G.phase!='battle'&&!G.mode&&me().hand[h]&&cd(me().hand[h]).k!='valk';
+// Toque corto = tap, 400 ms quieto = vista de lectura, mover = arrastrar (solo cartas de la mano)
+function press(e,get,tap,hi){
+  e.onpointerdown=ev=>{if(ev.button>0)return;ev.preventDefault();
+    const x0=ev.clientX,y0=ev.clientY;let lp=false,mv=false,gh=null,over=null;
+    try{e.setPointerCapture(ev.pointerId)}catch(x){}
+    e.classList.add('lift');
+    const t=setTimeout(()=>{const o=get();if(o){lp=true;showZoom(o)}},LPMS);
+    e.onpointermove=m=>{
+      if(lp)return;
+      if(!mv&&Math.hypot(m.clientX-x0,m.clientY-y0)>TOL){mv=true;clearTimeout(t);
+        if(hi!=null&&canDrag(hi)){gh=el('img','ghost');gh.src=img(me().hand[hi].id);document.body.append(gh);e.classList.remove('lift')}}
+      if(gh){gh.style.left=m.clientX+'px';gh.style.top=m.clientY+'px';
+        const u=document.elementFromPoint(m.clientX,m.clientY),zz=u&&u.closest('.mz.b');
+        if(over&&over!==zz)over.classList.remove('active');
+        over=zz&&!zz.classList.contains('has')?zz:null;if(over)over.classList.add('active')}};
+    const end=ok=>{clearTimeout(t);e.onpointermove=e.onpointerup=e.onpointercancel=null;e.classList.remove('lift');hideZoom();
+      if(gh){gh.remove();if(over){over.classList.remove('active');if(ok)summon(hi,'a',Z.b.m.indexOf(over))}return}
+      if(ok&&!lp&&!mv)tap()};
+    e.onpointerup=()=>end(true);e.onpointercancel=()=>end(false)}}
+function tapHand(i){if(busy())return;if(G.mode&&G.mode.k=='disc')return discard(i);
+  G.mode=null;G.sel=G.sel&&G.sel.z=='h'&&G.sel.i==i?null:{z:'h',i};ui()}
 function tween(e,pi,to){const from=shown[pi],t0=performance.now();shown[pi]=to;
   (function f(t){const k=Math.min(1,(t-t0)/500);e.textContent=Math.round(from+(to-from)*k)+' LP';if(k<1)requestAnimationFrame(f)})(t0)}
 function hud(id,pi){const p=P(pi),h=$(id);$('.nm',h).textContent='Jugador '+(pi+1);$('.lpb i',h).style.width=Math.min(100,p.lp/LP0*100)+'%';
   const l=$('.lpb span',h);shown[pi]!==p.lp?tween(l,pi,p.lp):l.textContent=p.lp+' LP'}
-function zones(sd,pi){const p=P(pi),s=Z[sd],k=G.mode&&G.mode.k;
-  p.field.forEach((m,i)=>{const z=s.m[i];let c='z '+sd;
-    if(m){if(G.sel&&G.sel.z=='f'&&G.sel.pi==pi&&G.sel.i==i)c+=' sel';
-      if(k=='atk'&&pi!=G.turn||k=='clown'&&pi!=G.turn)c+=' tgt';
-      if(k=='trib'&&pi==G.turn)c+=G.mode.sel.includes(i)?' on':' trb';
-      if(m.u==G.fresh)c+=' new'}
-    z.className=c;z.innerHTML=m?`<img class="${m.pos=='d'?'def':''}" src="${m.fd?BACK:img(m.id)}">`:''});
-  s.deck.innerHTML=p.deck.length?`<img src="${BACK}"><span class="cnt">${p.deck.length}</span>`:'';
-  const g=p.grave[p.grave.length-1];s.gy.innerHTML=g?`<img src="${img(g.id)}"><span class="cnt">${p.grave.length}</span>`:''}
-function hidx(ev){const b=$('#hand'),r=b.getBoundingClientRect(),n=me().hand.length,st=n>1?Math.min(72*.82,(r.width-84)/(n-1)):1;
-  return Math.max(0,Math.min(n-1,Math.round((ev.clientX-r.left-r.width/2)/st+(n-1)/2)))}
-function hand(){const b=$('#hand'),n=me().hand.length,w=b.clientWidth,st=n>1?Math.min(72*.82,(w-84)/(n-1)):0;b.innerHTML='';
+
+function zones(sd,pi){const p=P(pi),s=Z[sd],k=G.mode&&G.mode.k,mine=pi==G.turn,S=G.sel,
+  hc=mine&&S&&S.z=='h'&&me().hand[S.i],vm=hc&&cd(hc).k!='valk'&&G.phase!='battle'&&!G.summoned&&!G.mode;
+  p.field.forEach((m,i)=>{let c='z mz '+sd;
+    if(m){c+=' has';if(S&&S.z=='f'&&S.pi==pi&&S.i==i)c+=' sel';if((k=='atk'||k=='clown')&&!mine)c+=' tgt';
+      if(k=='trib'&&mine)c+=G.mode.sel.includes(i)?' on':' trb';if(m.u==G.fresh)c+=' new'}
+    else if(vm&&mine)c+=' valid';
+    s.m[i].className=c;s.m[i].innerHTML=m?`<img class="${m.pos=='d'?'def':''}" src="${m.fd?BACK:img(m.id)}">`:''});
+  const g=p.grave[p.grave.length-1];
+  s.gy.className='z u gy '+sd+(g?' has':'');s.gy.innerHTML=g?`<img src="${img(g.id)}"><span class="cnt">${p.grave.length}</span>`:'';
+  s.dk.className='z u dk '+sd+(p.deck.length?' has':'');s.dk.innerHTML=p.deck.length?`<img src="${BACK}"><span class="cnt">${p.deck.length}</span>`:''}
+function hand(){const b=$('#hand'),n=me().hand.length,cw=Z.b.m[0].offsetWidth||40,hw=cw*1.25,w=b.clientWidth||cw*6,st=n>1?Math.min(hw*.62,(w-hw)/(n-1)):0;
+  b.style.setProperty('--hw',hw+'px');b.innerHTML='';
   me().hand.forEach((c,i)=>{const k=i-(n-1)/2,e=el('div','hc'+(G.sel&&G.sel.z=='h'&&G.sel.i==i?' sel':''));
-    e.style.cssText=`left:${w/2-36+k*st}px;--r:${k*(n>6?3:4.5)}deg;--y:${k*k*(n>6?2:3)}px;z-index:${i}`;
-    e.innerHTML=`<img src="${img(c.id)}" draggable="false">`;b.append(e)})}
-function info(){const r=selCard(),m=G.mode&&G.mode.k;let t='',im='',e='',src=BACK,n='Elegí una carta';
-  if(m=='trib')e=`Elegí ${G.mode.nd} monstruo(s) tuyo(s) para tributar (${G.mode.sel.length}/${G.mode.nd}).`;
-  else if(m=='atk')e='Tocá un monstruo rival para atacar.';
-  else if(m=='clown')e='Payaso del Sueño: tocá un monstruo rival para destruirlo.';
-  else if(m=='disc')e=`Tenés ${me().hand.length} cartas: tocá una de tu mano para descartarla (máximo ${HLIM}).`;
-  else if(r){const c=cd(r.c);
-    if(r.fd){n='Monstruo boca abajo';im='Posición de defensa';e='Carta oculta.'}
-    else{src=img(r.c.id);n=c.n;const f=G.sel.z=='f',a=f?atk(r.pi,r.c):c.a;
-      im=`${c.at} · ${c.ra} · Nivel ${c.lv} · ATK ${a} / DEF ${c.d}`+(f?` · ${r.c.fd?'Boca abajo':r.c.pos=='a'?'Ataque':'Defensa'}`:'');
-      e=(c.x?'Efecto: '+c.x:'Monstruo Normal, sin efecto.')+(need(c.lv)&&G.sel.z=='h'?` Requiere ${need(c.lv)} tributo(s).`:'')}}
-  else e=G.msg||'Tocá una carta del tablero o deslizá el dedo por tu mano.';
-  $('#ic img').src=src;$('#in').textContent=n;$('#im').textContent=im;$('#ie').textContent=e;}
+    e.style.cssText=`left:${w/2-hw/2+k*st}px;--r:${k*(n>6?3.5:5)}deg;--y:${k*k*(n>6?1.6:2.4)}px;z-index:${i}`;
+    e.innerHTML=`<img src="${img(c.id)}" draggable="false">`;
+    press(e,()=>({c,pi:G.turn,f:false}),()=>tapHand(i),i);b.append(e)})}
 function acts(){const b=$('#acts');b.innerHTML='';const add=(t,f,c)=>{const x=el('button',c,t);x.onclick=f;b.append(x)};
   if(busy())return;const m=G.mode&&G.mode.k;
   if(m&&m!='disc')return add('Cancelar',()=>{G.mode=null;ui()},'r');
-  const s=G.sel;if(!s||m||s.z=='g'||(s.z=='f'&&s.pi!=G.turn))return;const c=s.z=='h'?me().hand[s.i]:me().field[s.i];if(!c)return;
+  const s=G.sel;if(!s||m)return;const c=s.z=='h'?me().hand[s.i]:me().field[s.i];if(!c)return;
   const main=G.phase!='battle';
   if(s.z=='h'&&main){if(cd(c).k=='valk')add('Invocación Especial',()=>specialValk(s.i));else{add('Invocar',()=>summon(s.i,'a'));add('Colocar',()=>summon(s.i,'s'))}}
-  else if(s.z=='f'){if(main)add(c.fd?'Invocar (Volteo)':'Cambiar posición',()=>changePos(s.i));else add('⚔️ Atacar',()=>startAtk(s.i),'r')}}
+  else if(s.z=='f'&&s.pi==G.turn){if(main)add(c.fd?'Invocar (Volteo)':'Cambiar posición',()=>changePos(s.i));else add('⚔️ Atacar',()=>startAtk(s.i),'r')}}
 function render(){
   hud('#hudB',G.turn);hud('#hudT',1-G.turn);zones('b',G.turn);zones('t',1-G.turn);
   $('.oh',$('#hudT')).innerHTML=op().hand.map(()=>`<img src="${BACK}">`).join('');
   const ph=[['main','Principal'],['battle','Batalla'],['main2','Principal 2']];
-  $('#chips').innerHTML=`<b>T${G.n}</b>`+ph.map(([k,l])=>`<b class="${G.phase==k?'on':''}">${l}</b>`).join('');
+  $('#chips').innerHTML=`<b>Turno ${G.n}</b>`+ph.map(([k,l])=>`<b class="${G.phase==k?'on':''}">${l}</b>`).join('');
   const nb=$('#nextBtn');nb.textContent=G.phase=='main'?(G.n===1?'Sin batalla':'Batalla'):'Fase 2';nb.disabled=!!(busy()||G.mode||G.phase=='main2');
   $('#endBtn').disabled=!!(busy()||(G.mode&&G.mode.k!='disc'));
   $('#logPanel ol').innerHTML=G.log.map(l=>`<li>${l}</li>`).join('');
-  hand();info();acts();
+  const k=G.mode&&G.mode.k,ht=k=='trib'?`Elegí ${G.mode.nd-G.mode.sel.length} tributo(s) de tu campo`:k=='atk'?'Elegí un objetivo rival':k=='clown'?'Payaso del Sueño: elegí un monstruo rival':k=='disc'?`Descartá ${me().hand.length-HLIM} carta(s) de tu mano`:'';
+  $('#hint').textContent=ht;$('#hint').hidden=!ht;
+  hand();acts();
   const c=$('#curtain');c.hidden=!busy();
   if(G.over){c.innerHTML=`<div><h2>🏆 Gana el Jugador ${G.over.w+1}</h2><p>${G.over.why}</p><button>Nueva partida</button></div>`;$('button',c).onclick=newGame}
   else if(G.curtain){c.innerHTML=`<div><h2>Turno del Jugador ${G.turn+1}</h2><p>Turno ${G.n}. Pasale el celular y tocá para ver tu mano.</p><button>Continuar</button></div>`;$('button',c).onclick=()=>{G.curtain=false;ui()}}}
@@ -230,19 +249,12 @@ const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(G))}catch(e){}};
 function ui(){save();render()}
 
 // ===== Inicio =====
-let dn=false;const hb=$('#hand');
-function scrub(ev){if(busy())return;const n=me().hand.length;if(!n)return;
-  if(G.mode&&G.mode.k=='disc')return;const i=hidx(ev);
-  if(!G.sel||G.sel.z!='h'||G.sel.i!==i||G.mode){G.mode=null;G.sel={z:'h',i};render()}}
-hb.onpointerdown=e=>{if(busy())return;if(G.mode&&G.mode.k=='disc'){discard(hidx(e));return}dn=true;hb.setPointerCapture(e.pointerId);scrub(e)};
-hb.onpointermove=e=>dn&&scrub(e);hb.onpointerup=hb.onpointercancel=()=>dn=false;
 $('#nextBtn').onclick=nextPhase;$('#endBtn').onclick=endTurn;
 $('#logBtn').onclick=()=>$('#logPanel').toggleAttribute('hidden');
 $('#muteBtn').onclick=e=>{mute=!mute;e.target.textContent=mute?'🔇':'🔊'};
 $('#restartBtn').onclick=()=>{if(confirm('¿Reiniciar la partida?'))newGame()};
-$('#ic').onclick=()=>{const s=$('#ic img').src;if(s.includes('cards')){$('#zoom img').src=s;$('#zoom').hidden=false}};
-$('#zoom').onclick=()=>$('#zoom').hidden=true;
-buildMat();
+document.addEventListener('contextmenu',e=>e.preventDefault());
+buildBoard();
 (function init(){let s;try{s=JSON.parse(localStorage.getItem(KEY))}catch(e){}
-  if(s&&s.p&&!s.over&&confirm('Hay una partida guardada. ¿Querés continuarla?')){G=s;G.curtain=true;uid=1e6;shown=[P(0).lp,P(1).lp];render()}else newGame()})();
+  if(s&&s.p&&!s.over&&s.p[0].field&&confirm('Hay una partida guardada. ¿Querés continuarla?')){G=s;G.curtain=true;uid=1e6;shown=[P(0).lp,P(1).lp];render()}else newGame()})();
 window.addEventListener('resize',()=>G&&hand());

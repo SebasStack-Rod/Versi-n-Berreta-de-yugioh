@@ -3,25 +3,30 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
-<meta name="theme-color" content="#070b16">
+<meta name="theme-color" content="#070b1a">
 <title>Duel Simple</title>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 <div id="app">
-  <div class="hud" id="hudT"><b class="nm"></b><div class="lpb"><i></i><span></span></div><div class="oh"></div>
-    <div class="tools"><button id="logBtn">📜</button><button id="muteBtn">🔊</button><button id="restartBtn">↺</button></div></div>
-  <div class="mat" id="mat"></div>
-  <div class="hud" id="hudB"><b class="nm"></b><div class="lpb"><i></i><span></span></div></div>
-  <div class="bar"><span id="chips"></span><button id="nextBtn"></button><button id="endBtn">Terminar turno</button></div>
-  <div id="info"><div id="ic"><img alt=""></div><div id="it"><b id="in"></b><div id="im"></div><p id="ie"></p></div></div>
-  <div id="acts"></div>
-  <div id="hand"></div>
+  <aside id="left" class="pn">
+    <div class="hud" id="hudT"><b class="nm"></b><div class="lpb"><i></i><span></span></div><div class="oh"></div></div>
+    <div id="chips"></div>
+    <div class="hud" id="hudB"><b class="nm"></b><div class="lpb"><i></i><span></span></div></div>
+  </aside>
+  <div id="bw"><main id="board"></main><div id="hand"></div></div>
+  <aside id="right" class="pn">
+    <div class="tools"><button id="logBtn">📜</button><button id="muteBtn">🔊</button><button id="restartBtn">↺</button></div>
+    <div id="acts"></div>
+    <div class="mainb"><button id="nextBtn"></button><button id="endBtn">Terminar turno</button></div>
+  </aside>
 </div>
+<div id="hint" hidden></div>
 <aside id="logPanel" hidden><ol></ol></aside>
 <div id="gyv" hidden></div>
-<div id="zoom" hidden><img alt=""></div>
+<div id="zoom" hidden></div>
 <div id="curtain" hidden></div>
+<div id="rot"><p>📱↻<br>Girá el celular en horizontal</p></div>
 <script src="script.js"></script>
 </body>
 </html>
