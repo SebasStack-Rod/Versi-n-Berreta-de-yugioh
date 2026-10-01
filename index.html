@@ -9,24 +9,34 @@
 </head>
 <body>
 <div id="app">
-  <aside id="left" class="pn">
+  <div class="top">
     <div class="hud" id="hudT"><b class="nm"></b><div class="lpb"><i></i><span></span></div><div class="oh"></div></div>
-    <div id="chips"></div>
+    <div class="tools"><button id="logBtn">📜</button><button id="muteBtn">🔊</button><button id="restartBtn" title="Menú">☰</button></div>
+  </div>
+  <div class="mid">
+    <div id="bw"><main id="board"></main><div id="hint" hidden></div></div>
     <div class="hud" id="hudB"><b class="nm"></b><div class="lpb"><i></i><span></span></div></div>
-  </aside>
-  <div id="bw"><main id="board"></main><div id="hand"></div></div>
-  <aside id="right" class="pn">
-    <div class="tools"><button id="logBtn">📜</button><button id="muteBtn">🔊</button><button id="restartBtn">↺</button></div>
     <div id="acts"></div>
-    <div class="mainb"><button id="nextBtn"></button><button id="endBtn">Terminar turno</button></div>
-  </aside>
+  </div>
+  <div id="hand"></div>
 </div>
-<div id="hint" hidden></div>
+<div id="stage" hidden><div id="chips"></div><button id="nextBtn"></button><button id="endBtn">Fin de turno</button></div>
+<div id="menu" class="scr">
+  <h1 class="nt">DUEL SIMPLE</h1>
+  <div class="mb"><button class="nb" id="bPlay">⚔ Duelo local</button><button class="nb" id="bCont" hidden>▶ Continuar partida</button><button class="nb" id="bD1">🂠 Mazo del Jugador 1</button><button class="nb" id="bD2">🂠 Mazo del Jugador 2</button></div>
+  <p id="mi"></p>
+</div>
+<div id="builder" class="scr" hidden>
+  <div class="bh"><b id="bT"></b><span id="bC"></span><span class="sp"></span><button class="nb" id="bRnd">Aleatorio</button><button class="nb" id="bClr">Vaciar</button><button class="nb" id="bNo">Cancelar</button><button class="nb ok" id="bOk">Guardar</button></div>
+  <div id="dk" class="cg"></div>
+  <div class="bs"><input id="q" type="search" placeholder="Buscar carta…" autocomplete="off"><select id="flt"><option value="">Todas</option><option value="n">Normales</option><option value="e">De efecto</option><option value="f">Fusión</option></select></div>
+  <div id="col" class="cg"></div>
+</div>
 <aside id="logPanel" hidden><ol></ol></aside>
 <div id="gyv" hidden></div>
 <div id="zoom" hidden></div>
 <div id="curtain" hidden></div>
-<div id="rot"><p>📱↻<br>Girá el celular en horizontal</p></div>
+<div id="rot"><p>📱↻<br>Girá el celular en vertical</p></div>
 <script src="script.js"></script>
 </body>
 </html>
