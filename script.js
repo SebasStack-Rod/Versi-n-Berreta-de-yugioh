@@ -294,7 +294,13 @@ const $=(s,r=document)=>r.querySelector(s);
 const el=(t,c,h)=>{const e=document.createElement(t);if(c)e.className=c;if(h!=null)e.innerHTML=h;return e};
 let G,uid=0,shown=[LP0,LP0],mute=false,AC,DK=[[],[]],SAVED=null;const Z={};
 const P=i=>G.p[i],me=()=>P(G.turn),op=()=>P(1-G.turn),O=i=>1-i;
-const busy=()=>G.over||G.curtain||G.ask;
+// ===== ONLINE: helpers =====
+let NET=null,ME=0,PEER=null;
+const online=()=>!!NET;
+const actor=()=>G.ask?G.ask.pi:G.turn;            // quién tiene que decidir ahora
+const myTurn=()=>!online()||actor()===ME;
+const VIEW=()=>online()?ME:G.turn;                 // desde qué jugador se dibuja
+const busy=()=>G.over||G.curtain||G.ask||!myTurn();
 const cd=m=>m.ov||C[m.id-1],nm=m=>cd(m).n,KK=m=>cd(m).k,isMon=m=>cd(m).ty=='m';
 const needT=c=>c.k=='slifer'?3:c.lv>=7?2:c.lv>=5?1:0;
 const MONS=pi=>P(pi).field.map((m,i)=>m&&[m,i]).filter(Boolean),UPM=pi=>MONS(pi).filter(([m])=>!m.fd);
@@ -346,7 +352,7 @@ function lp(pi,d,cost){const p=P(pi);
   if(d>0&&!cost&&hasT(O(pi),'simochi')){d=-d;msg('Mala Reacción de Simochi: el aumento de LP se convierte en daño.')}
   if(d<0&&!cost&&G.peace&&G.n<=G.peace){msg('Un Día de Paz: no se recibe daño.');return}
   p.lp=Math.max(0,p.lp+d);fx(pi,d);if(!p.lp)win(O(pi),`El Jugador ${pi+1} llegó a 0 LP.`)}
-function fx(pi,d){const h=$(pi===G.turn?'#hudB':'#hudT'),f=el('div','fl '+(d<0?'neg':'pos'),(d>0?'+':'')+d);h.append(f);setTimeout(()=>f.remove(),1200);
+function fx(pi,d){const h=$(pi===VIEW()?'#hudB':'#hudT'),f=el('div','fl '+(d<0?'neg':'pos'),(d>0?'+':'')+d);h.append(f);setTimeout(()=>f.remove(),1200);
   if(d<0){$('#board').classList.remove('shake');void $('#board').offsetWidth;$('#board').classList.add('shake');snd(200,.25,'sawtooth')}else snd(700)}
 function take(pi,zone,u){const a=P(pi)[zone],j=a.findIndex(c=>c.u==u);return j>=0?a.splice(j,1)[0]:null}
 const toGrave=(pi,c)=>P(pi).grave.push(stripc(c));
@@ -741,7 +747,7 @@ function ravineAct(){const pi=G.turn;if(G.fl.ravine===G.n)return say('Ya lo usas
 function gateAct(){const pi=G.turn,l=fusable(pi);if(!l.length)return say('No tenés materiales para ninguna Fusión.');if(noSp())return say(noSp());G.sel=null;pickList(pi,'Puerta de Fusión: elegí el Monstruo de Fusión',l,'gatef',null,false,true,'ext');ui()}
 
 // ===== Interfaz =====
-const TOL=10,LPMS=400,pIdx=sd=>sd=='b'?G.turn:1-G.turn;
+const TOL=10,LPMS=400,pIdx=sd=>sd=='b'?VIEW():1-VIEW();
 function buildBoard(){
   const B=$('#board');B.innerHTML='';
   const cell=(c,r,col)=>{const z=el('div','z '+c);z.style.gridArea=r+'/'+col;B.append(z);return z};
@@ -753,17 +759,17 @@ function buildBoard(){
   cell('xz',3,3);cell('xz',3,5);
   const pc=(ar,...n)=>{const d=el('div','pc');d.style.gridArea=ar;d.append(...n);B.append(d)};
   pc('3/1/4/3',$('#chips'));pc('3/6/4/8',$('#nextBtn'),$('#endBtn'))}
-function zcard(sd,i){const pi=pIdx(sd),m=P(pi).field[i];return m&&(!m.fd||pi==G.turn)?{c:m,pi,f:true}:null}
-function stcard(sd,i){const pi=pIdx(sd),c=P(pi).st[i];return c&&(!c.fd||pi==G.turn)?{c,pi,f:false}:null}
+function zcard(sd,i){const pi=pIdx(sd),m=P(pi).field[i];return m&&(!m.fd||pi==VIEW())?{c:m,pi,f:true}:null}
+function stcard(sd,i){const pi=pIdx(sd),c=P(pi).st[i];return c&&(!c.fd||pi==VIEW())?{c,pi,f:false}:null}
 function fzcard(sd){const pi=pIdx(sd),c=P(pi).fz;return c?{c,pi,f:false}:null}
 function topGrave(sd){const pi=pIdx(sd),g=P(pi).grave;return g.length?{c:g[g.length-1],pi,f:false}:null}
 function view(h,list,pi){const v=$('#gyv');v.innerHTML=`<h3>${h}</h3><div class="g"></div><p><button>Cerrar</button></p>`;
   list.forEach(c=>{const w=el('div','gc',`<img src="${img(c.id)}">`);press(w,()=>({c,pi,f:false}),()=>{});$('.g',v).append(w)});
   $('button',v).onclick=()=>v.hidden=true;v.hidden=false}
 function openGy(sd){const pi=pIdx(sd),p=P(pi);view(`Cementerio del Jugador ${pi+1} (${p.grave.length}) · Desterradas (${p.ban.length})`,[...p.grave,...p.ban],pi)}
-function openExt(sd){const pi=pIdx(sd);if(pi!=G.turn||G.curtain)return say(`Deck Extra del rival: ${P(pi).ext.length} cartas.`);view(`Tu Deck Extra (${P(pi).ext.length})`,P(pi).ext,pi)}
+function openExt(sd){const pi=pIdx(sd);if(pi!=VIEW()||G.curtain)return say(`Deck Extra del rival: ${P(pi).ext.length} cartas.`);view(`Tu Deck Extra (${P(pi).ext.length})`,P(pi).ext,pi)}
 function zoneClick(sd,i){
-  if(G.over||G.curtain||G.ask)return;
+  if(busy())return;
   const pi=pIdx(sd),m=P(pi).field[i],md=G.mode,k=md&&md.k;
   if(k=='tg'){if(tgValid(md,pi,'m',i))tgDone(md,pi,'m',i);return}
   if(k=='trib'&&pi==G.turn&&m&&!m.nt){const s=md.sel,j=s.indexOf(i);j>=0?s.splice(j,1):s.push(i);if(s.length==md.nd)return place(md.h,md.pos,s);return ui()}
@@ -812,8 +818,8 @@ function tween(e,pi,to){const from=shown[pi],t0=performance.now();shown[pi]=to;
   (function f(t){const k=Math.min(1,(t-t0)/500);e.textContent=Math.round(from+(to-from)*k)+' LP';if(k<1)requestAnimationFrame(f)})(t0)}
 function hud(id,pi){const p=P(pi),h=$(id);$('.nm',h).textContent='Jugador '+(pi+1);$('.lpb i',h).style.width=Math.min(100,p.lp/LP0*100)+'%';
   const l=$('.lpb span',h);shown[pi]!==p.lp?tween(l,pi,p.lp):l.textContent=p.lp+' LP'}
-function zones(sd,pi){const p=P(pi),s=Z[sd],md=G.mode,k=md&&md.k,mine=pi==G.turn,S=G.sel,
-  hc=mine&&S&&S.z=='h'&&me().hand[S.i],vm=hc&&cd(hc).ty=='m'&&!SPK.has(cd(hc).k)&&!cd(hc).dead&&G.phase!='battle'&&!G.summoned&&!G.mode;
+function zones(sd,pi){const p=P(pi),s=Z[sd],md=G.mode,k=myTurn()&&md&&md.k,mine=pi==VIEW(),S=myTurn()?G.sel:null,
+  hc=mine&&S&&S.z=='h'&&P(pi).hand[S.i],vm=hc&&cd(hc).ty=='m'&&!SPK.has(cd(hc).k)&&!cd(hc).dead&&G.phase!='battle'&&!G.summoned&&!G.mode;
   p.field.forEach((m,i)=>{let c='z mz '+sd;
     if(m){c+=' has';if(S&&S.z=='f'&&S.pi==pi&&S.i==i)c+=' sel';if(k=='atk'&&!mine)c+=' tgt';if(k=='tg'&&tgValid(md,pi,'m',i))c+=' tgt';
       if(k=='trib'&&mine&&!m.nt)c+=md.sel.includes(i)?' on':' trb';if(m.u==G.fresh)c+=' new'}
@@ -827,12 +833,12 @@ function zones(sd,pi){const p=P(pi),s=Z[sd],md=G.mode,k=md&&md.k,mine=pi==G.turn
   const g=p.grave[p.grave.length-1];
   s.gy.className='z u gy '+sd+(g?' has':'');s.gy.innerHTML=g?`<img src="${img(g.id)}"><span class="cnt">${p.grave.length}</span>`:'';
   s.dk.className='z u dk '+sd+(p.deck.length?' has':'');s.dk.innerHTML=p.deck.length?`<img src="${BACK}"><span class="cnt">${p.deck.length}</span>`:''}
-function hand(){const b=$('#hand'),n=me().hand.length,cw=Z.b.m[0].offsetWidth||40,hw=cw*1.9,w=b.clientWidth||cw*7,st=n>1?Math.min(hw*.62,(w-hw)/(n-1)):0;
+function hand(){const b=$('#hand'),n=P(VIEW()).hand.length,cw=Z.b.m[0].offsetWidth||40,hw=cw*1.9,w=b.clientWidth||cw*7,st=n>1?Math.min(hw*.62,(w-hw)/(n-1)):0;
   b.style.setProperty('--hw',hw+'px');b.innerHTML='';
-  me().hand.forEach((c,i)=>{const k=i-(n-1)/2,e=el('div','hc'+(G.sel&&G.sel.z=='h'&&G.sel.i==i?' sel':''));
+  P(VIEW()).hand.forEach((c,i)=>{const k=i-(n-1)/2,e=el('div','hc'+(myTurn()&&G.sel&&G.sel.z=='h'&&G.sel.i==i?' sel':''));
     e.style.cssText=`left:${w/2-hw/2+k*st}px;--r:${k*(n>6?3.5:5)}deg;--y:${k*k*(n>6?1.6:2.4)}px;z-index:${i}`;
     e.innerHTML=`<img src="${img(c.id)}" draggable="false">`;
-    press(e,()=>({c,pi:G.turn,f:false}),()=>tapHand(i),i);b.append(e)})}
+    press(e,()=>({c,pi:VIEW(),f:false}),()=>tapHand(i),i);b.append(e)})}
 function acts(){const b=$('#acts');b.innerHTML='';const add=(t,f,c)=>{const x=el('button',c,t);x.onclick=f;b.append(x)};
   if(busy())return;const md=G.mode,m=md&&md.k;
   if(m=='tg'){if(!md.nc)add('Cancelar',()=>{G.mode=null;G.Q=[];ui()},'r');return}
@@ -852,14 +858,15 @@ function acts(){const b=$('#acts');b.innerHTML='';const add=(t,f,c)=>{const x=el
 function modal(){const md=$('#gyv'),a=G.ask,pk=md.dataset.pk;
   const show=h=>{md.innerHTML=h;md.hidden=false;md.dataset.pk=1};
   if(a){
-    if(a.pi!=G.turn&&!a.ok&&!G.over){show(`<div><h2>Jugador ${a.pi+1}</h2><p>Pasale el celular al Jugador ${a.pi+1} y tocá Continuar.</p><button>Continuar</button></div>`);$('button',md).onclick=()=>{a.ok=true;ui()};md.classList.add('pass');return}
+    if(online()&&a.pi!==ME){md.hidden=true;return}
+    if(a.pi!=G.turn&&!a.ok&&!G.over&&!online()){show(`<div><h2>Jugador ${a.pi+1}</h2><p>Pasale el celular al Jugador ${a.pi+1} y tocá Continuar.</p><button>Continuar</button></div>`);$('button',md).onclick=()=>{a.ok=true;ui()};md.classList.add('pass');return}
     md.classList.remove('pass');
     if(a.k=='ask'){show(`<h3>${a.t}</h3><div class="ob"></div>`);a.o.forEach((o,j)=>{const b=el('button','nb',o[0]);b.onclick=()=>answer(j);$('.ob',md).append(b)})}
     else{show(`<h3>${a.t}</h3><div class="g"></div>${a.opt?'<p><button class="nb">Omitir</button></p>':''}`);
       a.list.forEach((c,j)=>{const w=el('div','gc',`<img src="${img(c.id)}">`);press(w,()=>({c,pi:a.pi,f:false}),()=>chosen(j));$('.g',md).append(w)});
       if(a.opt)$('button',md).onclick=()=>chosen(-1)}
     return}
-  if(G.mode&&G.mode.k=='peek'){const M=G.mode;
+  if(G.mode&&G.mode.k=='peek'&&(!online()||G.mode.pi===ME)){const M=G.mode;
     show(`<h3>Jugador ${M.pi+1} · Gran Ojo: tocá las cartas en el orden que querés (la primera queda arriba)</h3><div class="g"></div>`);
     M.cards.forEach((c,i)=>{const on=M.ord.indexOf(i),w=el('div','gc',`<img src="${img(c.id)}">${on>=0?`<span class="cnt">${on+1}</span>`:''}`);
       press(w,()=>({c,pi:M.pi,f:false}),()=>{if(M.ord.includes(i))return;M.ord.push(i);
@@ -868,8 +875,8 @@ function modal(){const md=$('#gyv'),a=G.ask,pk=md.dataset.pk;
 function hintText(){const md=G.mode,k=md&&md.k;
   return k=='trib'?`Elegí ${md.nd-md.sel.length} tributo(s) de tu campo`:k=='atk'?'Elegí un objetivo rival':k=='tg'?md.t:k=='disc'?`Descartá ${me().hand.length-HLIM} carta(s) de tu mano`:''}
 function render(){
-  hud('#hudB',G.turn);hud('#hudT',1-G.turn);zones('b',G.turn);zones('t',1-G.turn);
-  $('.oh',$('#hudT')).innerHTML=op().hand.map(()=>`<img src="${BACK}">`).join('');
+  hud('#hudB',VIEW());hud('#hudT',1-VIEW());zones('b',VIEW());zones('t',1-VIEW());
+  $('.oh',$('#hudT')).innerHTML=P(1-VIEW()).hand.map(()=>`<img src="${BACK}">`).join('');
   const ph=[['main','Principal'],['battle','Batalla'],['main2','Principal 2']];
   $('#chips').innerHTML=`<b>Turno ${G.n}</b>`+ph.map(([k,l])=>`<b class="${G.phase==k?'on':''}">${l}</b>`).join('');
   const nb=$('#nextBtn');nb.textContent=G.phase=='main'?(G.n===1?'Sin batalla':'Batalla'):'Fase 2';nb.disabled=!!(busy()||G.mode||G.phase=='main2');
@@ -878,10 +885,10 @@ function render(){
   const ht=hintText();$('#hint').textContent=ht;$('#hint').hidden=!ht;
   hand();acts();modal();
   const c=$('#curtain');c.hidden=!(G.over||G.curtain);
-  if(G.over){c.innerHTML=`<div><h2>🏆 Gana el Jugador ${G.over.w+1}</h2><p>${G.over.why}</p><button>Nueva partida</button></div>`;$('button',c).onclick=()=>{$('#menu').hidden=true;newGame()}}
+  if(G.over){c.innerHTML=`<div><h2>🏆 Gana el Jugador ${G.over.w+1}</h2><p>${G.over.why}</p><button>${online()&&ME==1?'Esperá al anfitrión…':'Nueva partida'}</button></div>`;$('button',c).onclick=()=>{if(online()&&ME==1)return;$('#menu').hidden=true;newGame()}}
   else if(G.curtain){c.innerHTML=`<div><h2>Turno del Jugador ${G.turn+1}</h2><p>Turno ${G.n}. Pasale el celular y tocá para ver tu mano.</p><button>Continuar</button></div>`;$('button',c).onclick=()=>{G.curtain=false;ui()}}}
-const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(G))}catch(e){}};
-function ui(){statics();flush();save();render()}
+const save=()=>{if(online())return;try{localStorage.setItem(KEY,JSON.stringify(G))}catch(e){}};
+function ui(){statics();flush();if(online())G.curtain=false;save();render();if(online())netSend()}
 
 // ===== Menú y constructor de mazos =====
 const norm=t=>t.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
@@ -918,6 +925,45 @@ function drawB(){
   $('#col').replaceChildren(...C.filter(c=>(!q||norm(c.n).includes(q))&&(!f||(f=='m'?c.ty=='m'&&!c.fus:f=='s'?c.ty=='s':f=='p'?c.ty=='p':c.fus)))
     .map(c=>tile(c.id,()=>addC(c.id),['#dk',()=>addC(c.id)],cnt(c.id),c.fus?'ex':'')))}
 
+// ===== ONLINE: red (PeerJS) =====
+function netSend(){try{if(NET&&NET.open)NET.send(JSON.stringify({t:'s',G,uid}))}catch(e){}}
+function netLost(){say('Se perdió la conexión con el rival.')}
+function netGot(d){
+  try{d=typeof d=='string'?JSON.parse(d):d}catch(e){return}
+  if(d.t==='deck'){                                   // solo lo recibe el anfitrión
+    if(!Array.isArray(d.deck)||!d.deck.every(x=>C[x-1]))return;
+    DK[1]=d.deck;$('#menu').hidden=true;newGame()}
+  else if(d.t==='s'){                                 // estado nuevo: solo dibujar, NO ejecutar lógica
+    const old=G&&G.log[0];G=d.G;uid=Math.max(uid,d.uid||0);$('#menu').hidden=true;
+    if(G.log[0]&&G.log[0]!==old)say(G.log[0]);
+    render()}}
+function netErr(e){say('Error de conexión: '+(e&&e.type||e));$('#mi').textContent='No se pudo conectar ('+(e&&e.type||'error')+'). Probá de nuevo.'}
+function netHost(){
+  if(typeof Peer=='undefined')return say('No cargó PeerJS (¿sin internet?).');
+  if(PEER){PEER.destroy();PEER=null}
+  const code=Math.random().toString(36).slice(2,6).toUpperCase();
+  PEER=new Peer('duelsimple-'+code);
+  PEER.on('error',netErr);
+  PEER.on('open',()=>{
+    const url=location.origin+location.pathname+'?sala='+code;
+    $('#mi').innerHTML='Sala <b>'+code+'</b><br>Tocá acá para copiar el link y mandáselo a tu amigo.<br>Esperando rival…';
+    $('#mi').onclick=()=>{navigator.clipboard&&navigator.clipboard.writeText(url).then(()=>say('Link copiado'))}});
+  PEER.on('connection',c=>{
+    if(NET){c.close();return}
+    c.on('open',()=>{NET=c;ME=0;say('¡Rival conectado!')});
+    c.on('data',netGot);c.on('close',netLost)})}
+function netJoin(code){
+  if(typeof Peer=='undefined')return say('No cargó PeerJS (¿sin internet?).');
+  code=(code||prompt('Código de sala:')||'').trim().toUpperCase();if(!code)return;
+  if(PEER){PEER.destroy();PEER=null}
+  PEER=new Peer();
+  PEER.on('error',netErr);
+  PEER.on('open',()=>{
+    const c=PEER.connect('duelsimple-'+code,{reliable:true});
+    c.on('open',()=>{NET=c;ME=1;c.send(JSON.stringify({t:'deck',deck:DK[0]}));$('#mi').textContent='Conectado. Esperando que empiece el duelo…'});
+    c.on('data',netGot);c.on('close',netLost)})}
+$('#bHost').onclick=netHost;$('#bJoin').onclick=()=>netJoin();
+
 // ===== Inicio =====
 $('#bPlay').onclick=startDuel;
 $('#bCont').onclick=()=>{G=SAVED;SAVED=null;G.curtain=true;uid=1e6;shown=[P(0).lp,P(1).lp];$('#menu').hidden=true;render()};
@@ -928,9 +974,10 @@ $('#q').oninput=$('#flt').onchange=drawB;
 $('#nextBtn').onclick=nextPhase;$('#endBtn').onclick=endTurn;
 $('#logBtn').onclick=()=>$('#logPanel').toggleAttribute('hidden');
 $('#muteBtn').onclick=e=>{mute=!mute;e.target.textContent=mute?'🔇':'🔊'};
-$('#restartBtn').onclick=()=>{if(G&&!G.over)try{SAVED=JSON.parse(JSON.stringify(G))}catch(e){}showMenu()};
+$('#restartBtn').onclick=()=>{if(online()){if(confirm('¿Salir de la partida online?'))location.reload();return}if(G&&!G.over)try{SAVED=JSON.parse(JSON.stringify(G))}catch(e){}showMenu()};
 document.addEventListener('contextmenu',e=>e.preventDefault());
 buildBoard();loadDecks();
 (function init(){let s;try{s=JSON.parse(localStorage.getItem(KEY))}catch(e){}
-  SAVED=s&&s.p&&!s.over&&s.p[0].st&&Array.isArray(s.Q)?s:null;showMenu()})();
+  SAVED=s&&s.p&&!s.over&&s.p[0].st&&Array.isArray(s.Q)?s:null;showMenu();
+  const sala=new URLSearchParams(location.search).get('sala');if(sala)netJoin(sala)})();
 window.addEventListener('resize',()=>G&&hand());
