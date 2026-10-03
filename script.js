@@ -897,17 +897,24 @@ function randomDeck(){const pool=C.filter(c=>!c.fus&&!c.dead).map(c=>c.id),d=[];
   while(d.length<40){const id=pool[Math.random()*pool.length|0];if(d.filter(x=>x==id).length<3)d.push(id)}
   shuffle([...okFus]).slice(0,3).forEach(id=>d.push(id));return d.sort((a,b)=>a-b)}
 const mainN=a=>a.filter(i=>!C[i-1].fus).length,extN=a=>a.filter(i=>C[i-1].fus).length;
-function loadDecks(){let d;try{d=JSON.parse(localStorage.getItem('duel-decks-v2'))}catch(e){}
-  DK=[0,1].map(i=>d&&Array.isArray(d[i])&&d[i].every(x=>C[x-1])&&mainN(d[i])>=40&&mainN(d[i])<=60&&extN(d[i])<=MAXX?d[i]:randomDeck())}
-const saveDecks=()=>{try{localStorage.setItem('duel-decks-v2',JSON.stringify(DK))}catch(e){}};
-function showMenu(){$('#builder').hidden=true;$('#menu').hidden=false;$('#bCont').hidden=!SAVED;
-  $('#mi').textContent=`Jugador 1: ${mainN(DK[0])} + ${extN(DK[0])} extra · Jugador 2: ${mainN(DK[1])} + ${extN(DK[1])} extra`}
+const okDeck=a=>Array.isArray(a)&&a.every(x=>C[x-1])&&mainN(a)>=40&&mainN(a)<=60&&extN(a)<=MAXX;
+function loadDecks(){let d,n,c;try{d=JSON.parse(localStorage.getItem('duel-decks-v2'))}catch(e){}
+  try{n=JSON.parse(localStorage.getItem('duel-dnames-v1'))}catch(e){}
+  try{c=JSON.parse(localStorage.getItem('duel-custom-v1'))}catch(e){}
+  CD=Array.isArray(c)?c.filter(x=>x&&x.n&&okDeck(x.ids)):[];
+  const def=[PD[0],PD[1]];                            // primera vez: Yugi vs Kaiba
+  DK=[0,1].map(i=>d&&okDeck(d[i])?d[i]:def[i].ids.slice().sort((a,b)=>a-b));
+  DN=[0,1].map(i=>d&&okDeck(d[i])?(n&&typeof n[i]=='string'?n[i]:''):deckLabel(def[i]))}
+const saveDecks=()=>{try{localStorage.setItem('duel-decks-v2',JSON.stringify(DK));localStorage.setItem('duel-dnames-v1',JSON.stringify(DN))}catch(e){}};
+const saveCD=()=>{try{localStorage.setItem('duel-custom-v1',JSON.stringify(CD.map(({n,s,g,ids})=>({n,s,g,ids}))))}catch(e){}};
+function showMenu(){$('#builder').hidden=$('#lib').hidden=$('#libD').hidden=true;$('#menu').hidden=false;$('#bCont').hidden=!SAVED;
+  $('#mi').textContent=[0,1].map(i=>`Jugador ${i+1}: ${DN[i]||'Mazo personalizado'} (${mainN(DK[i])} + ${extN(DK[i])} extra)`).join('\n')}
 function startDuel(){const bad=DK.findIndex(d=>mainN(d)<40||mainN(d)>60);
   if(bad>=0){say(`El mazo del Jugador ${bad+1} debe tener entre 40 y 60 cartas.`);return openBuilder(bad)}
   $('#menu').hidden=true;SAVED=null;newGame()}
 let BD=[],BI=0;
 const cnt=id=>BD.filter(x=>x==id).length;
-function openBuilder(pi){BI=pi;BD=[...DK[pi]].sort((a,b)=>a-b);$('#menu').hidden=true;$('#builder').hidden=false;
+function openBuilder(pi,ids,name){BI=pi;BD=[...(ids||DK[pi])].sort((a,b)=>a-b);BN=ids?name:(DN[pi]||'');BO=keyOf(BD);$('#menu').hidden=true;$('#builder').hidden=false;
   $('#bT').textContent=`Mazo del Jugador ${pi+1}`;$('#q').value='';$('#flt').value='';drawB()}
 function addC(id){const c=C[id-1];
   if(cnt(id)>=3)return say('Solo puede haber 3 copias de la misma carta.');
@@ -918,12 +925,81 @@ function delC(i){BD.splice(i,1);snd(300,.06);drawB()}
 function tile(id,tap,dz,n,cl){const c=C[id-1],w=el('div','tile'+(n>=3?' full':'')+(cl?' '+cl:'')+(c.dead?' dead':''),`<img loading="lazy" src="${img(id)}">${n?`<span class="cnt">${n}/3</span>`:''}${c.dead?'<i class="bad">!</i>':''}`);
   press(w,()=>({c:{id},pi:0,f:false}),tap,null,dz,true);return w}
 function drawB(){
-  $('#bC').textContent=`Principal ${mainN(BD)}/60 (mín. 40) · Extra ${extN(BD)}/${MAXX}`;
+  $('#bN').textContent='📚 '+(curLabel()||'Mazo personalizado');$('#bC').textContent=`Principal ${mainN(BD)}/60 (mín. 40) · Extra ${extN(BD)}/${MAXX}`;
   const ord=[...BD.map((id,i)=>({id,i}))].sort((a,b)=>C[a.id-1].fus-C[b.id-1].fus||a.i-b.i);
   $('#dk').replaceChildren(...ord.map(o=>tile(o.id,()=>delC(o.i),null,0,C[o.id-1].fus?'ex':'')));
   const q=norm($('#q').value),f=$('#flt').value;
   $('#col').replaceChildren(...C.filter(c=>(!q||norm(c.n).includes(q))&&(!f||(f=='m'?c.ty=='m'&&!c.fus:f=='s'?c.ty=='s':f=='p'?c.ty=='p':c.fus)))
     .map(c=>tile(c.id,()=>addC(c.id),['#dk',()=>addC(c.id)],cnt(c.id),c.fus?'ex':'')))}
+
+const PD=[
+ {n:"Yugi Muto",s:"Rey de los Juegos",g:"Personaje",cv:[139,16,126],d:"El mazo clásico de Yugi: Mago Oscuro, Maga Oscura, Convoca al Craneo, Gaia y Maldición de Dragón. Polimerización fusiona a Gaia + Maldición de Dragón en el Campeón Dragón. Kuriboh y Mago del Tiempo cubren los apuros; Espadas, Espejo y Cilindro frenan al rival.",c:"16x2 106x2 120x2 126x2 139x2 141x2 142x2 143x2 145x2 161x2 222 223 229x2 231x2 232 233 234 236 239 240 243x2 244 246x2 249 260 264 270 276"},
+ {n:"Seto Kaiba",s:"Ojos Azules Clásico",g:"Personaje",cv:[105,186,204],d:"Dragones Blancos de Ojos Azules apoyados por el cementerio: Santuario de Dragones manda Dragones al Cementerio y Grito Plateado, Renacimiento del Dragón y Monstruo Renacido los traen de vuelta sin sacrificios. Rayo Explosivo de la Destrucción barre el Campo rival.",c:"25x2 36 104x3 105x3 108x2 111x2 151x2 186 204 205x2 206x2 207x2 209 211x2 218x2 220x2 223 229x3 231x2 243x2 246 264 270 276"},
+ {n:"Seto Kaiba",s:"Dragón Definitivo",g:"Personaje",cv:[218,105,12],d:"La combinación soñada: 3 Dragones Blancos de Ojos Azules + Polimerización = Dragón de Ojos Azules Definitivo (4500 ATK). La Diosa del Tercer Ojo sustituye a un material, así que bastan 2 Ojos Azules. Puerta de Fusión permite fusionar sin gastar Polimerización.",c:"12x3 25 104x2 105x3 108x2 111x2 151x3 161x2 211x2 218x3 226x2 229x3 231x2 243x2 246x2 260 264x2 265 270x2 276 281x2"},
+ {n:"Joey Wheeler",s:"Duelista de la Suerte",g:"Personaje",cv:[186,120,108],d:"El Dragón Negro de Ojos Rojos como estrella y Mago del Tiempo para jugarte todo a cara o cruz. Mago del Tiempo + Bebé Dragón (con Polimerización) dan el Dragón Milenario. Guerreros sólidos como Incursor del Hacha y Gearfried acompañan.",c:"27x2 77 108x3 120x3 151 173x3 178x2 182x3 186x3 209 221 222 223 229x3 231x2 240 243x2 244 246x2 260 264 270x2 275 276 278"},
+ {n:"Mai Valentine",s:"Arpías y Trampas",g:"Personaje",cv:[165,117,21],d:"Criaturas aladas para aguantar y un muro de Trampas para castigar: Fuerza de Espejo, Cilindro Mágico, Waboku y Negar Ataque. Espadas de la Luz Reveladora compra tiempo y Monstruo Renacido recupera a tus mejores aves.",c:"21x2 29x2 91x2 111x2 117x2 151 161x2 165x3 222 223x2 228 231x2 236x2 240 243x3 244 246x3 260x2 263 264 270x2 273 276"},
+ {n:"Weevil Underwood",s:"Plaga de Insectos",g:"Personaje",cv:[154,155,248],d:"Enjambre de Insectos potenciado por el Bosque (+200) y la Armadura de Cañón Láser (+300). Pinch Hopper invoca más bichos al caer, Insecto Come-hombres destruye lo que toca al voltearse y Reina Insecto crece con cada Insecto del Campo.",c:"152x2 153x3 154x2 155x2 156x2 157x2 158x2 209 223 231 243x2 244 246x2 247 248x3 249x3 254 256x3 258x3 260 270x2"},
+ {n:"Rex Raptor",s:"Furia Jurásica",g:"Personaje",cv:[136,183,184],d:"Dinosaurios agresivos de buenos ATK a bajo nivel: Rey de Dos Cabezas Rex, Uraby y Dragon Rastrero #2, con Megazowler y Brazo Espada del Dragón como remate. Caja Mística y Toma Almas abren camino; muchas Trampas protegen tu ofensiva.",c:"115x2 136x3 151 162x3 183x2 184x3 185x3 209 222 223x2 228x2 231x2 240x2 243x3 244 246x2 260x2 264 270x2 273 276"},
+ {n:"Mako Tsunami",s:"Reino del Mar",g:"Personaje",cv:[177,163,193],d:"Criaturas marinas de ATK alto para su nivel: Kairyu-Shin, Blanco Gigante, Kraken Demoniaco y Malagua. Tortuga Catapulta convierte tus monstruos en daño directo. Trampas defensivas aguantan mientras el océano hace el resto.",c:"35 45 55x2 82 97x2 163x3 174x2 175x2 177x3 193x2 209 223x2 228x2 231x2 240 243x3 244 246x3 260x2 264 270x2 276"},
+ {n:"Yami Bakura",s:"Ejército de Zombis",g:"Personaje",cv:[187,202,22],d:"Zombis baratos que se vuelven monstruosos: Castillo de las Ilusiones Oscuras da +200 ATK/DEF a todos y la Calabaza Rey de los Fantasmas crece con él. Entierro Insensato, Llamado de los Condenados y Máscara de la Oscuridad mantienen el ciclo del Cementerio.",c:"3x2 22x3 58 128x2 134x2 140x2 187x3 199x2 200x3 201x2 202x2 203 209x3 221x3 223 229 231x2 243x2 244x2 246 270 276"},
+ {n:"Marik Ishtar",s:"Slifer, el Dragón del Cielo",g:"Personaje",cv:[224,161,226],d:"Monstruos de nivel bajo como carne de sacrificio y una mano llena: Slifer tiene 1000 ATK/DEF por cada carta en tu mano y debilita a los atacantes rivales al entrar. Cartas que roban y Trampas defensivas mantienen la mano grande mientras esperás a tu Dios.",c:"26x2 96x2 113x2 120 128x2 151x2 161x3 224x2 226x2 231 243x2 246x2 249 260x2 263 264x3 265x2 270x3 275x2 276x3"},
+ {n:"Exodia",s:"Búsqueda del Prohibido",g:"Estrategia",cv:[125,122,123],d:"Reuní las 5 piezas del Prohibido en tu mano y ganás al instante. 15 piezas, mucho robo (Olla de la Dualidad, Goblin Insolente, Destrucción de la Carta, Legado de Yata-Garatsu) y Gran Ojo para ordenar tus próximas cartas. Waboku y Negar Ataque te dan tiempo.",c:"76x3 121x3 122x3 123x3 124x3 125x3 151x3 161 193x2 260 263 264x3 265x3 270x2 275x2 276x3 279"},
+ {n:"Mago Oscuro",s:"Linaje de Magos",g:"Estrategia",cv:[139,16,72],d:"Todo gira en torno al Mago Oscuro y la Maga Oscura. Cortina de Magia Oscura y La Piedra del Sabio lo invocan sin sacrificios; Mil Cuchillos y Ataque Mágico Oscuro limpian el Campo. Con Mago del Tiempo, si la moneda sale bien, entra el Sabio Oscuro.",c:"15x3 16x3 19x2 72 106 120x2 139x3 148x2 170 222 223 231 232x2 233x2 234x2 239x2 240 241 243x2 244 246x2 260 264 270 276"},
+ {n:"Dragones",s:"Barranco del Dragón",g:"Estrategia",cv:[213,217,215],d:"Mazo de Dragones de élite: Barranco del Dragón (Mágica de Campo) manda Dragones al Cementerio descartando, y Monstruo Renacido, Grito Plateado y el Dragón del Génesis los devuelven. Con Barranco en juego podés invocar al Malicioso Dragón Blanco de Ojos Azules sin sacrificios.",c:"25 104x2 105x2 108x2 114x2 135x2 143x2 186x3 197 204 205x2 206 207x2 210 211x2 213 215 217x2 219x3 220x2 221 231x2 243 246"},
+ {n:"Fusión",s:"Maestro de la Puerta de Fusión",g:"Estrategia",cv:[173,141,12],d:"Todas las fusiones del juego en un mazo: Dragón Milenario, Gaia el Campeón Dragón, Guerrero de Karbonala, Zombi Guerrero y Dragón de Fuego Oscuro. Polimerización, Puerta de Fusión y De-Fusión mueven las piezas; la Diosa del Tercer Ojo sustituye a cualquier material.",c:"12x3 62x2 65x2 66x2 73x2 104x2 108x3 120x3 128x2 134x2 141x2 142x2 143x2 147x2 151 173x2 203x2 223 229x3 231 238 243 246 260 264 270 276 281x2"},
+ {n:"Cementerio",s:"Reanimación Eterna",g:"Estrategia",cv:[186,126,22],d:"Mandá lo más grande al Cementerio y revivilo gratis: Entierro Insensato, Monstruo Renacido y Llamado de los Condenados traen de vuelta al Dragón Negro de Ojos Rojos, al Mago Oscuro y a Convoca al Craneo. Sangan y la Máscara de la Oscuridad reciclan lo que necesitas.",c:"3x2 22x2 72 126x2 139x2 142 143x2 151x3 161 186x3 200x2 205x2 209x3 220 221x3 231x3 243 244x2 246 264 270 276"},
+ {n:"Daño Directo",s:"Simochi y Tarjeta de Regalo",g:"Estrategia",cv:[274,271,79],d:"Ganás sin atacar: con Mala Reacción de Simochi en juego, cada LP que el rival \"gana\" se convierte en daño. Tarjeta de Regalo (3000), Toma Almas y Goblin Insolente (1000 c/u) suman, y Pájaro Sigiloso, Tortuga Catapulta y Flecha Rompedora rematan.",c:"79x3 126x2 151x2 161x3 193x3 226x3 228x3 231 235x2 243 246x3 260 264 265x3 270x2 271x3 274x3 276"},
+ {n:"Sacrificio Letal",s:"Tortuga Catapulta",g:"Estrategia",cv:[193,151,126],d:"Sacrificá monstruos fuertes a la Tortuga Catapulta para infligir la mitad de su ATK como daño directo, y recuperá piezas con Sangan, Pinch Hopper y Monstruo Renacido. Pájaro Sigiloso y Waboku mantienen vivo el motor.",c:"79x2 126x2 137 142 151x3 161x2 186 189x2 193x3 209x2 226x2 228x2 231x3 243 244 246x2 248x2 260x2 264x2 265 270x2 276"},
+ {n:"Jinzo",s:"Anulador de Trampas",g:"Estrategia",cv:[20,56,28],d:"Jinzo niega todas las Trampas del Campo, así que este mazo no lleva ninguna: puro monstruo y Magia. Jinzo - Señor se invoca sacrificando a Jinzo. Sangan y Convoca al Craneo dan cuerpo; Toma Almas, Caja Mística y Monstruo Renacido controlan la partida.",c:"20x3 28x2 56 71 76 110 126x2 137x2 139 151x3 161x2 189x2 191x2 208 209x2 226 228x3 231x3 235 237 240x2 264x2 265"},
+ {n:"Gaia, el Caballero Feroz",s:"Guerreros y Fusiones",g:"Estrategia",cv:[142,141,147],d:"Guerreros sólidos con dos fusiones: Gaia + Maldición de Dragón = Gaia, el Campeón Dragón, y M-Guerrero Nº 1 + Nº 2 = Guerrero de Karbonala. La Diosa del Tercer Ojo sustituye a un material y Puerta de Fusión ahorra la Polimerización.",c:"12x2 27x2 65x3 66x3 77 141x3 142x3 143x2 145x3 147x3 171 182x3 222 223 229x3 231x2 240 243x2 244 246x2 260 270 276 281"},
+ {n:"Bosque",s:"Bestias y Plantas",g:"Estrategia",cv:[118,256,131],d:"El Bosque da +200 ATK/DEF a Insectos, Bestias, Plantas y Bestias Guerreras. Toro de Batalla, Buey de Batalla y Guerrero Castor atacan fuerte, mientras León Durmiente y Jinete Místico sostienen la defensa.",c:"24x2 63x2 107x2 112x2 118x3 130x2 131x2 149 164x2 167x2 168 195x2 221 223 231x2 240 243x2 244 246x2 256x3 260 270x2 276"},
+ {n:"Hadas",s:"Muro Celestial",g:"Estrategia",cv:[194,106,75],d:"Control defensivo con monstruos de DEF altísima (Duende Místico y Espíritu del Arpa con 2000) y un muro de Trampas y Espadas de la Luz Reveladora. Gyakutenno Megami y Orión cierran la partida cuando el rival se queda sin recursos.",c:"12 14x2 30x2 75x3 96x2 102x2 106x3 151 161 194x2 223 228 231 236x3 243x2 246x2 259 260x3 263x2 264 270x2 273x2"},
+ {n:"Demonios",s:"Segadora de Cartas",g:"Estrategia",cv:[126,188,189],d:"Los Demonios del inframundo: Convoca al Craneo (2500 ATK con un solo sacrificio), Rey de Yamimakai y Quimera Oscura. Sangan y Kuriboh dan consistencia; la Segadora de las Cartas destruye Trampas rivales al voltearse.",c:"74 76 79 109 110x2 126x3 129x2 151x3 161x2 188x2 189x2 191x2 192 198 209 223 228x2 231x2 240 243x2 244 246x2 260 264 270 276"},
+ {n:"Torneo",s:"Control Clásico",g:"Estrategia",cv:[20,126,151],d:"Lo mejor de lo mejor sin una identidad fija: pocos monstruos pero muy buenos, tres Monstruo Renacido, Caja Mística, Toma Almas y una pared de Trampas. Si no tenés idea de qué mazo elegir, empezá por este.",c:"20 76 120 126x2 137 142 151x3 161x2 186 189 209 223 226x2 228x2 231x3 237 240x2 243x3 246x2 260x2 263 264 265 270 276x3"}
+];
+
+// ===== Biblioteca de mazos =====
+const parseC=s=>s.split(' ').flatMap(t=>{const[a,b]=t.split('x');return Array(+(b||1)).fill(+a)});
+PD.forEach(p=>{p.ids=parseC(p.c);p.pre=1});
+let DN=['',''],CD=[],BN='',BO='',LM='menu',LB=null;
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const keyOf=a=>[...a].sort((x,y)=>x-y).join(','),baseN=s=>(s||'').replace(/ · editado$/,'');
+const curLabel=()=>BN?(keyOf(BD)==BO?BN:baseN(BN)+' · editado'):'';
+const deckLabel=p=>p.s?`${p.n} — ${p.s}`:p.n;
+const kinds=a=>({mo:a.filter(i=>C[i-1].ty=='m'&&!C[i-1].fus).length,sp:a.filter(i=>C[i-1].ty=='s').length,tr:a.filter(i=>C[i-1].ty=='p').length});
+const statLine=p=>{const k=kinds(p.ids);return `${mainN(p.ids)} + ${extN(p.ids)} extra · ${k.mo} monstruos · ${k.sp} magias · ${k.tr} trampas`};
+const cover=p=>p.cv||[...new Set(p.ids.filter(i=>C[i-1].ty=='m'))].sort((a,b)=>C[b-1].a-C[a-1].a).slice(0,3);
+const hay=p=>p._h||(p._h=norm([p.n,p.s,p.g,p.d,...new Set(p.ids.map(i=>C[i-1].n))].join(' ')));
+function openLib(mode){LM=mode;$('#lq').value='';$('#lf').value='';$('#menu').hidden=$('#builder').hidden=$('#libD').hidden=true;$('#lib').hidden=false;drawLib()}
+function drawLib(){const q=norm($('#lq').value).trim(),f=$('#lf').value,all=[...PD,...CD],
+  list=all.filter(p=>(!f||p.g==f)&&(!q||q.split(/\s+/).every(w=>hay(p).includes(w))));
+  $('#lC').textContent=`${list.length} mazo${list.length==1?'':'s'}`;
+  $('#ll').replaceChildren(...(list.length?list.map(libRow):[el('p','le','No hay mazos que coincidan con la búsqueda.')]))}
+function libRow(p){
+  const r=el('button','ld',`<span class="lc">${cover(p).map(i=>`<img src="${img(i)}" loading="lazy" alt="">`).join('')}</span><span class="li"><span class="ln"><b>${esc(p.n)}</b><i class="tg">${esc(p.g)}</i></span>${p.s?`<em>${esc(p.s)}</em>`:''}<small>${statLine(p)}</small></span>`);
+  r.onclick=()=>openLD(p);return r}
+function openLD(p){LB=p;$('#lib').hidden=true;$('#libD').hidden=false;
+  $('#ldT').textContent=deckLabel(p);
+  $('#ldI').innerHTML=`<p>${esc(p.d||'Mazo propio.')}</p><small>${statLine(p)}</small>`;
+  const g=$('#ldk'),cnt={};p.ids.forEach(i=>cnt[i]=(cnt[i]||0)+1);g.replaceChildren();
+  const sec=(t,ok,ex)=>{const ids=Object.keys(cnt).map(Number).filter(i=>ok(C[i-1])).sort((a,b)=>C[b-1].lv-C[a-1].lv||C[b-1].a-C[a-1].a||a-b);
+    if(!ids.length)return;g.append(el('h4','sc',`${t} (${ids.reduce((n,i)=>n+cnt[i],0)})`));
+    ids.forEach(i=>{const w=tile(i,()=>{},null,0,ex?'ex':'');w.append(el('span','cnt','×'+cnt[i]));g.append(w)})};
+  sec('Monstruos',c=>c.ty=='m'&&!c.fus);sec('Magias',c=>c.ty=='s');sec('Trampas',c=>c.ty=='p');sec('Deck Extra',c=>c.fus,1);g.scrollTop=0;
+  const B=$('#ldB');B.replaceChildren();
+  const add=(t,f,c)=>{const b=el('button','nb'+(c?' '+c:''),t);b.onclick=f;B.append(b)};
+  if(LM=='pick')add('📥 Cargar en el editor',()=>pickDeck(p),'ok');
+  else{add('▶ Usar en J1',()=>useDeck(0,p),'ok');add('▶ Usar en J2',()=>useDeck(1,p),'ok');add('✎ Editar en J1',()=>editDeck(0,p));add('✎ Editar en J2',()=>editDeck(1,p));
+    if(!p.pre)add('🗑 Eliminar',()=>delCD(p))}}
+const sortIds=p=>[...p.ids].sort((a,b)=>a-b);
+function useDeck(pi,p){DK[pi]=sortIds(p);DN[pi]=deckLabel(p);saveDecks();showMenu();say(`Jugador ${pi+1}: ${deckLabel(p)}`)}
+function editDeck(pi,p){$('#libD').hidden=true;openBuilder(pi,sortIds(p),deckLabel(p))}
+function pickDeck(p){BD=sortIds(p);BN=deckLabel(p);BO=keyOf(BD);$('#libD').hidden=true;$('#builder').hidden=false;drawB();say(`Cargado: ${deckLabel(p)}`)}
+function delCD(p){if(!confirm(`¿Eliminar el mazo "${p.n}"?`))return;CD=CD.filter(x=>x!==p);saveCD();$('#libD').hidden=true;$('#lib').hidden=false;drawLib()}
+$('#bLib').onclick=()=>openLib('menu');
+$('#lBack').onclick=()=>{if(LM=='pick'){$('#lib').hidden=true;$('#builder').hidden=false}else showMenu()};
+$('#ldBack').onclick=()=>{$('#libD').hidden=true;$('#lib').hidden=false};
+$('#lq').oninput=$('#lf').onchange=drawLib;
 
 // ===== ONLINE: red (PeerJS) =====
 function netSend(){try{if(NET&&NET.open)NET.send(JSON.stringify({t:'s',G,uid}))}catch(e){}}
@@ -968,8 +1044,13 @@ $('#bHost').onclick=netHost;$('#bJoin').onclick=()=>netJoin();
 $('#bPlay').onclick=startDuel;
 $('#bCont').onclick=()=>{G=SAVED;SAVED=null;G.curtain=true;uid=1e6;shown=[P(0).lp,P(1).lp];$('#menu').hidden=true;render()};
 $('#bD1').onclick=()=>openBuilder(0);$('#bD2').onclick=()=>openBuilder(1);
-$('#bRnd').onclick=()=>{BD=randomDeck();drawB()};$('#bClr').onclick=()=>{BD=[];drawB()};
-$('#bOk').onclick=()=>{if(mainN(BD)<40)return say('El mazo principal necesita al menos 40 cartas.');DK[BI]=[...BD];saveDecks();showMenu()};$('#bNo').onclick=showMenu;
+$('#bRnd').onclick=()=>{BD=randomDeck();BN='Mazo aleatorio';BO=keyOf(BD);drawB()};$('#bClr').onclick=()=>{BD=[];BN='';drawB()};
+$('#bOk').onclick=()=>{if(mainN(BD)<40)return say('El mazo principal necesita al menos 40 cartas.');DK[BI]=[...BD];DN[BI]=curLabel();saveDecks();showMenu()};$('#bNo').onclick=showMenu;
+$('#bLoad').onclick=()=>openLib('pick');
+$('#bSave').onclick=()=>{if(mainN(BD)<40)return say('El mazo principal necesita al menos 40 cartas.');
+  const nm=(prompt('Nombre para tu mazo:',baseN(curLabel())||'Mi mazo')||'').trim().slice(0,40);if(!nm)return;
+  const it={n:nm,s:'',g:'Mío',ids:[...BD].sort((a,b)=>a-b)},j=CD.findIndex(x=>x.n==nm);
+  if(j>=0)CD[j]=it;else CD.push(it);saveCD();BN=nm;BO=keyOf(BD);drawB();say(`Guardado en la biblioteca: ${nm}`)};
 $('#q').oninput=$('#flt').onchange=drawB;
 $('#nextBtn').onclick=nextPhase;$('#endBtn').onclick=endTurn;
 $('#logBtn').onclick=()=>$('#logPanel').toggleAttribute('hidden');
