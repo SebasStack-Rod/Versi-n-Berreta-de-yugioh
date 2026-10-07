@@ -293,20 +293,14 @@ const FM={73:['Hierba de Fuego','Pequeño Dragón'],119:['Manipulador de la Llam
 const $=(s,r=document)=>r.querySelector(s);
 const el=(t,c,h)=>{const e=document.createElement(t);if(c)e.className=c;if(h!=null)e.innerHTML=h;return e};
 let G,uid=0,shown=[LP0,LP0],mute=false,AC,DK=[[],[]],SAVED=null;const Z={};
-// Modo administrador (solo en memoria)
-const ADM={on:false,pl:0,free:true,fuse:true,bT:false,bS:false,bE:false,src:'deck'};
-const admFree=pi=>ADM.on&&ADM.free&&pi==ADM.pl,admFus=pi=>ADM.on&&ADM.fuse&&pi==ADM.pl;
-const blockKind=(pi,k)=>!!(ADM.on&&G&&pi!=ADM.pl&&(k=='p'?ADM.bT:k=='s'?ADM.bS:ADM.bE));
-function blocked(pi,kind,what){if(!blockKind(pi,kind))return false;showBlock(kind,what);return true}
-function findBlocker(kind){const prefs=kind=='p'?['Jinzo','Jinzo - Señor']:kind=='s'?['Paladín Oscuro','Gran Escudo Gardna']:[];
-  const p=P(ADM.pl),own=[...p.deck,...p.ext,...p.hand,...p.grave,...p.ban,...p.field.filter(Boolean),...p.st.filter(Boolean)];
-  for(const n of prefs){const h=own.find(c=>cd(c).n==n);if(h)return{id:h.id,where:'tu mazo'}}
-  for(const n of prefs){const c=C.find(x=>x.n==n);if(c)return{id:c.id,where:'el juego'}}return null}
-function showBlock(kind,what){const b=findBlocker(kind),c=b&&C[b.id-1];
-  const t=c?`${c.n} (de ${b.where}) niega ${what}.`:`Se bloquea ${what}.`;msg(`🛡 ${t}`);snd(150,.3,'sawtooth');
-  const d=el('div','blk',`${c?`<img src="${img(c.id)}">`:''}<div><b>¡Bloqueado!</b><span>${t}</span>${c?`<small>${c.x}</small>`:''}</div>`);document.body.append(d);setTimeout(()=>d.remove(),3000)}
 const P=i=>G.p[i],me=()=>P(G.turn),op=()=>P(1-G.turn),O=i=>1-i;
-const busy=()=>G.over||G.curtain||G.ask;
+// ===== ONLINE: helpers =====
+let NET=null,ME=0,PEER=null;
+const online=()=>!!NET;
+const actor=()=>G.ask?G.ask.pi:G.turn;            // quién tiene que decidir ahora
+const myTurn=()=>!online()||actor()===ME;
+const VIEW=()=>online()?ME:G.turn;                 // desde qué jugador se dibuja
+const busy=()=>G.over||G.curtain||G.ask||!myTurn();
 const cd=m=>m.ov||C[m.id-1],nm=m=>cd(m).n,KK=m=>cd(m).k,isMon=m=>cd(m).ty=='m';
 const needT=c=>c.k=='slifer'?3:c.lv>=7?2:c.lv>=5?1:0;
 const MONS=pi=>P(pi).field.map((m,i)=>m&&[m,i]).filter(Boolean),UPM=pi=>MONS(pi).filter(([m])=>!m.fd);
@@ -358,7 +352,7 @@ function lp(pi,d,cost){const p=P(pi);
   if(d>0&&!cost&&hasT(O(pi),'simochi')){d=-d;msg('Mala Reacción de Simochi: el aumento de LP se convierte en daño.')}
   if(d<0&&!cost&&G.peace&&G.n<=G.peace){msg('Un Día de Paz: no se recibe daño.');return}
   p.lp=Math.max(0,p.lp+d);fx(pi,d);if(!p.lp)win(O(pi),`El Jugador ${pi+1} llegó a 0 LP.`)}
-function fx(pi,d){const h=$(pi===G.turn?'#hudB':'#hudT'),f=el('div','fl '+(d<0?'neg':'pos'),(d>0?'+':'')+d);h.append(f);setTimeout(()=>f.remove(),1200);
+function fx(pi,d){const h=$(pi===VIEW()?'#hudB':'#hudT'),f=el('div','fl '+(d<0?'neg':'pos'),(d>0?'+':'')+d);h.append(f);setTimeout(()=>f.remove(),1200);
   if(d<0){$('#board').classList.remove('shake');void $('#board').offsetWidth;$('#board').classList.add('shake');snd(200,.25,'sawtooth')}else snd(700)}
 function take(pi,zone,u){const a=P(pi)[zone],j=a.findIndex(c=>c.u==u);return j>=0?a.splice(j,1)[0]:null}
 const toGrave=(pi,c)=>P(pi).grave.push(stripc(c));
@@ -375,7 +369,7 @@ function kill(pi,i,o={}){const p=P(pi),m=p.field[i];if(!m)return;p.field[i]=null
   if(m.tk){msg(`${c.n} (ficha) desaparece.`);return}
   if(o.how=='ban'||(KK(m)=='caos'&&!m.fd)||(by&&KK(by)=='caos'&&o.bat)){p.ban.push(stripc(m));msg(`${c.n} es desterrado.`)}
   else{toGrave(pi,m);
-    if(o.bat&&by&&KK(by)=='volst'&&!blocked(O(pi),'m','Des Volstgalph')){msg('Des Volstgalph inflige 500 de daño.');lp(pi,-500)}
+    if(o.bat&&by&&KK(by)=='volst'){msg('Des Volstgalph inflige 500 de daño.');lp(pi,-500)}
     gyTrig(pi,m)}
   if(o.des)offer(pi,'dest',{pi})}
 function destroyM(pi,i,src,by){const m=P(pi).field[i];if(!m)return false;
@@ -384,7 +378,7 @@ function destroyM(pi,i,src,by){const m=P(pi).field[i];if(!m)return false;
   if(src=='bat'&&G.wab&&G.wab.n==G.n&&G.wab.pi==pi)return false;
   kill(pi,i,{des:1,bat:src=='bat',by});return true}
 function bounce(pi,i){const p=P(pi),m=p.field[i];if(!m)return;p.field[i]=null;leave(pi,m);if(!m.tk)p.hand.push(stripc(m));msg(`${nm(m)} vuelve a la mano.`)}
-function gyTrig(pi,m){const k=KK(m),p=P(pi);if(['sangan','hopper','genesis'].includes(k)&&blocked(pi,'m',cd(m).n))return;
+function gyTrig(pi,m){const k=KK(m),p=P(pi);
   if(k=='sangan')pickFrom(pi,pi,'deck','Sangan: añadí 1 monstruo con 1500 ATK o menos',c=>cd(c).ty=='m'&&cd(c).a<=1500&&!cd(c).fus,'toHand');
   if(k=='hopper')pickFrom(pi,pi,'hand','Pinch Hopper: invocá 1 Insecto de tu mano',c=>cd(c).ty=='m'&&cd(c).ra=='Insecto','spHand',null,true);
   if(k=='genesis'){const ds=p.grave.filter(c=>cd(c).ra=='Dragón'&&cd(c).ty=='m');if(ds.length){ds.forEach(c=>{take(pi,'grave',c.u);p.deck.push(c)});shuffle(p.deck);msg('Dragón del Génesis: los Dragones del Cementerio vuelven al Deck.')}}}
@@ -392,7 +386,7 @@ function spSum(pi,c,pos='a',o={}){const p=P(pi),i=p.field.indexOf(null);if(i<0)r
   const m={id:c.id,u:c.u||++uid,pos,fd:false,atkd:false,moved:false,t:G.n,bonus:0,tmp:0,ps:0,...o};if(c.ov)m.ov=c.ov;
   p.field[i]=m;G.fresh=m.u;msg(`Invocación Especial: ${nm(m)}.`);snd(440);onSum(pi,m,'s');return m}
 function token(pi,id,ov,pos='d'){const c=C[id-1];return spSum(pi,{id,u:++uid,ov:{...c,...ov,k:undefined,x:'Ficha'}},pos,{tk:1,nt:1})}
-function onSum(pi,m,how){const k0=KK(m),k=['caos','slifer','sage'].includes(k0)&&blocked(pi,'m',nm(m))?'':k0;
+function onSum(pi,m,how){const k=KK(m);
   if(k=='caos')pickFrom(pi,pi,'grave','Mago Oscuro del Caos: añadí 1 Carta Mágica del Cementerio',c=>cd(c).ty=='s','toHand',null,true);
   if(k=='slifer'&&(how=='n'||how=='t'))UPM(O(pi)).forEach(([x,i])=>{if(x.pos=='a'){x.bonus=(x.bonus||0)-2000;if(atk(O(pi),x)<=0)kill(O(pi),i,{des:1})}});
   if(k=='sage')pickFrom(pi,pi,'deck','Sabio Oscuro: añadí 1 Carta Mágica de tu Deck',c=>cd(c).ty=='s','toHandSh');
@@ -427,9 +421,8 @@ function actCard(z,i){const pi=G.turn,p=me(),c=z=='h'?p.hand[i]:p.st[i],d=cd(c),
   if(d.ty=='s'&&d.ra!='Juego Rápido'&&G.phase=='battle')return say('Solo en la Fase Principal.');
   const w=f.can&&f.can(pi,c,null);if(w)return say(w);
   if(z=='h'&&d.ra!='Campo'&&(d.ra=='Continua'||d.ra=='Equipo')&&p.st.indexOf(null)<0)return say('Tu zona de Mágicas/Trampas está llena.');
-  startCard(pi,z,i,d.k);ui()}
+  startCard(pi,z,i,d.k)}
 function startCard(pi,z,i,k,ev){const f=FX[k];
-  {const zn=z=='h'?'hand':'st',c0=P(pi)[zn][i];if(c0&&blocked(pi,cd(c0).ty,cd(c0).n)){if(z=='h')P(pi).hand.splice(i,1);else P(pi).st[i]=null;toGrave(pi,c0);G.sel=null;return}}
   if(f.tg){G.sel=null;return tgReq(pi,`${cd(P(pi)[z=='h'?'hand':'st'][i]).n}: ${f.tgt||'elegí un objetivo'}`,f.tg.s,f.tg.p,f.tg.f,'card',{pi,z,i,k,ev})}
   resolveCard(pi,z,i,k,null)}
 function resolveCard(pi,z,i,k,t){const p=P(pi),c=z=='h'?p.hand[i]:p.st[i];if(!c)return;const d=cd(c),f=FX[k];
@@ -458,7 +451,7 @@ function summon(h,pos,slot){
   if(c.dead||SPK.has(c.k)||c.fus)return say(c.fus?'Los monstruos de Fusión entran con Polimerización.':`${c.n} solo se Invoca de Modo Especial.`);
   if(G.summoned)return say('Ya hiciste tu Invocación Normal o Colocación este turno.');
   if(!canSum())return say('No podés Invocar otros monstruos este turno (Cortina de Magia Oscura).');
-  const nd=admFree(G.turn)?0:needT(c),tr=MONS(G.turn).filter(([m])=>!m.nt).length,fr=MONS(G.turn).length;
+  const nd=needT(c),tr=MONS(G.turn).filter(([m])=>!m.nt).length,fr=MONS(G.turn).length;
   if(nd>tr)return say(`Necesitás ${nd} monstruo(s) en tu campo para tributar.`);
   if(!nd&&fr>=SLOTS)return say('Tu campo está lleno.');
   if(nd){G.mode={k:'trib',h,pos,nd,sel:[]};G.sel=null;return ui()}
@@ -472,10 +465,9 @@ function place(h,pos,tr,slot){const p=me(),c=p.hand.splice(h,1)[0];
   if(pos!='s'){titi(pup);onSum(G.turn,m,tr.length?'t':'n')}ui()}
 const SPK=new Set(['valk','jz2','malic','exod','larva','gmoth','pmoth','sisters','toonbe','paladin']);
 const pups=()=>[0,1].map(pi=>UPM(pi).filter(([m])=>m.id==71).length);
-function titi(pp){pp.forEach((n,pi)=>{if(n&&!G.over&&!blocked(pi,'m','Titiritero Misterioso')){msg(`Titiritero Misterioso: +${500*n} LP para el Jugador ${pi+1}.`);lp(pi,500*n)}})}
+function titi(pp){pp.forEach((n,pi)=>{if(n&&!G.over){msg(`Titiritero Misterioso: +${500*n} LP para el Jugador ${pi+1}.`);lp(pi,500*n)}})}
 function special(h){const p=me(),c0=p.hand[h],d=cd(c0),k=d.k,pi=G.turn;
   if(busy()||G.phase=='battle')return;
-  if(admFree(pi)){if(!free(pi))return say('Tu campo está lleno.');const v=p.hand.splice(h,1)[0];spSum(pi,v,'a');G.sel=null;msg('(Admin) Invocación Especial sin condiciones.');return ui()}
   if(G.nosp===G.n||!canSum())return say('No podés Invocar de Modo Especial este turno.');
   const miss=n=>say(`${d.n} necesita "${n}", que no existe en este conjunto de cartas.`);
   if(k=='valk'){const names=['Alpha el Guerrero Magnético','Beta el Guerrero Magnético','Gamma el Guerrero Magnético'];
@@ -492,7 +484,7 @@ function special(h){const p=me(),c0=p.hand[h],d=cd(c0),k=d.k,pi=G.turn;
   else return miss('Petit Moth');
 }
 // Fusión
-function fuseMats(pi,fid){if(admFus(pi))return[];const p=P(pi),want=[...FM[fid]],pool=[...p.hand.map((c,i)=>({s:'h',i,c})),...MONS(pi).map(([m,i])=>({s:'f',i,c:m}))],used=new Set(),res=[];let miss=0;
+function fuseMats(pi,fid){const p=P(pi),want=[...FM[fid]],pool=[...p.hand.map((c,i)=>({s:'h',i,c})),...MONS(pi).map(([m,i])=>({s:'f',i,c:m}))],used=new Set(),res=[];let miss=0;
   for(const n of want){const j=pool.findIndex((x,k)=>!used.has(k)&&isMon(x.c)&&!cd(x.c).fus&&cd(x.c).n==n);if(j>=0){used.add(j);res.push(pool[j])}else miss++}
   if(miss==1){const j=pool.findIndex((x,k)=>!used.has(k)&&cd(x.c).n=='Diosa del Tercer Ojo');if(j>=0){used.add(j);res.push(pool[j]);miss=0}}
   return miss?null:res}
@@ -596,7 +588,7 @@ const anyST=pi=>P(pi).st.some(Boolean)||!!P(pi).fz;
 function pickList(pi,t,list,act,data,opt,noTake,zone,side){if(!list.length)return false;G.Q.unshift({k:'pick',pi,side:side??pi,zone,t,list,act,data,opt,noTake});return true}
 function destroyAllST(pi){P(pi).st.forEach((c,x)=>c&&destroyST(pi,'s',x));if(P(pi).fz)destroyST(pi,'z')}
 function equipTo(c,m){c.tg=m.u;if(KK(m)=='gear'){const j=P(G.turn).st.indexOf(c);const o=[0,1].find(q=>P(q).st.includes(c));if(o!=null)destroyST(o,'s',P(o).st.indexOf(c));msg('Gearfried destruye la Carta de Equipo.')}}
-function flipFx(pi,m,fs){const k=KK(m);if(['mask','sig','ojo','castle','reaper','eater','piper'].includes(k)&&blocked(pi,'m',nm(m)))return;
+function flipFx(pi,m,fs){const k=KK(m);
   if(k=='mask')pickFrom(pi,pi,'grave','Máscara de la Oscuridad: añadí 1 Trampa del Cementerio',c=>cd(c).ty=='p','toHand',null,true);
   if(k=='sig'&&fs){msg('Pájaro Sigiloso: 1000 de daño al rival.');lp(O(pi),-1000)}
   if(k=='ojo'){const n=Math.min(5,P(pi).deck.length);if(n>1){G.mode={k:'peek',pi,cards:P(pi).deck.slice(-n).reverse(),ord:[]};G.sel=null}}
@@ -742,20 +734,20 @@ function changePos(i){const pi=G.turn,m=me().field[i];
   if(!m.fd&&cls(m)=='Insecto'&&UPM(O(pi)).some(([x])=>KK(x)=='ibprin'))return say('Princesa Insecto mantiene a los Insectos en Ataque.');
   if(m.fd){const pup=pups();m.fd=false;m.pos='a';msg(`Invocación de Volteo: ${nm(m)}.`);titi(pup);flipFx(pi,m,true);if(atk(pi,m)>=1500)offer(O(pi),'sum',{u:m.u,pi})}
   else{m.pos=m.pos=='a'?'d':'a';msg(`${nm(m)} pasa a ${m.pos=='a'?'ataque':'defensa'}.`);
-    if(m.pos=='d'&&MONS(O(pi)).length){if(KK(m)=='payaso'&&!blocked(pi,'m',nm(m)))tgReq(pi,'Payaso del Sueño: destruí 1 monstruo rival','opp','mon','any','clown',null,1);
-      if(KK(m)=='clown2'&&!blocked(pi,'m',nm(m)))tgReq(pi,'Payaso Craso: devolvé 1 monstruo rival a la mano','opp','mon','any','clown2',null,1)}
+    if(m.pos=='d'&&MONS(O(pi)).length){if(KK(m)=='payaso')tgReq(pi,'Payaso del Sueño: destruí 1 monstruo rival','opp','mon','any','clown',null,1);
+      if(KK(m)=='clown2')tgReq(pi,'Payaso Craso: devolvé 1 monstruo rival a la mano','opp','mon','any','clown2',null,1)}
     if(KK(m)=='sab'&&m.pos=='d'){shuffle(me().deck);msg('Sabiduría Manchada: barajás tu Deck.')}}
   m.moved=true;snd(330);ui()}
 function setFD(i){const m=me().field[i];if(m.fdt||m.atkd||G.phase=='battle')return say('Ya lo usaste este turno.');
   m.fd=true;m.pos='d';m.fdt=true;msg(`${nm(m)} se pone boca abajo.`);snd(300);ui()}
 function gemSummon(i){const m=me().field[i];if(G.summoned||!canSum())return say('Ya hiciste tu Invocación Normal este turno.');m.gem=1;G.summoned=true;msg(`${nm(m)}: Invocación Gemini, ahora tiene efecto.`);ui()}
-function useAct(i){const pi=G.turn,m=me().field[i],a=ACT[KK(m)];if(blocked(pi,'m',nm(m))){m.ef=G.n;G.sel=null;return ui()}const w=a.can&&a.can(pi,m);if(w)return say(w);G.sel=null;a.run(pi,m);ui()}
+function useAct(i){const pi=G.turn,m=me().field[i],a=ACT[KK(m)];const w=a.can&&a.can(pi,m);if(w)return say(w);G.sel=null;a.run(pi,m);ui()}
 function ravineAct(){const pi=G.turn;if(G.fl.ravine===G.n)return say('Ya lo usaste este turno.');if(!me().hand.length||!me().deck.some(isDC))return say('Necesitás una carta en la mano y un Dragón en el Deck.');
   G.fl.ravine=G.n;G.sel=null;pickFrom(pi,pi,'hand','Barranco del Dragón: descartá 1 carta',()=>true,'rav1');ui()}
 function gateAct(){const pi=G.turn,l=fusable(pi);if(!l.length)return say('No tenés materiales para ninguna Fusión.');if(noSp())return say(noSp());G.sel=null;pickList(pi,'Puerta de Fusión: elegí el Monstruo de Fusión',l,'gatef',null,false,true,'ext');ui()}
 
 // ===== Interfaz =====
-const TOL=10,LPMS=400,pIdx=sd=>sd=='b'?G.turn:1-G.turn;
+const TOL=10,LPMS=400,pIdx=sd=>sd=='b'?VIEW():1-VIEW();
 function buildBoard(){
   const B=$('#board');B.innerHTML='';
   const cell=(c,r,col)=>{const z=el('div','z '+c);z.style.gridArea=r+'/'+col;B.append(z);return z};
@@ -767,18 +759,17 @@ function buildBoard(){
   cell('xz',3,3);cell('xz',3,5);
   const pc=(ar,...n)=>{const d=el('div','pc');d.style.gridArea=ar;d.append(...n);B.append(d)};
   pc('3/1/4/3',$('#chips'));pc('3/6/4/8',$('#nextBtn'),$('#endBtn'))}
-function zcard(sd,i){const pi=pIdx(sd),m=P(pi).field[i];return m&&(!m.fd||pi==G.turn)?{c:m,pi,f:true}:null}
-function stcard(sd,i){const pi=pIdx(sd),c=P(pi).st[i];return c&&(!c.fd||pi==G.turn)?{c,pi,f:false}:null}
+function zcard(sd,i){const pi=pIdx(sd),m=P(pi).field[i];return m&&(!m.fd||pi==VIEW())?{c:m,pi,f:true}:null}
+function stcard(sd,i){const pi=pIdx(sd),c=P(pi).st[i];return c&&(!c.fd||pi==VIEW())?{c,pi,f:false}:null}
 function fzcard(sd){const pi=pIdx(sd),c=P(pi).fz;return c?{c,pi,f:false}:null}
 function topGrave(sd){const pi=pIdx(sd),g=P(pi).grave;return g.length?{c:g[g.length-1],pi,f:false}:null}
-function view(h,list,pi,tap){const v=$('#gyv');v.innerHTML=`<h3>${h}</h3><div class="g"></div><p><button>Cerrar</button></p>`;
-  list.forEach(c=>{const w=el('div','gc',`<img src="${img(c.id)}">`);press(w,()=>({c,pi,f:false}),()=>{if(tap)tap(c)});$('.g',v).append(w)});
+function view(h,list,pi){const v=$('#gyv');v.innerHTML=`<h3>${h}</h3><div class="g"></div><p><button>Cerrar</button></p>`;
+  list.forEach(c=>{const w=el('div','gc',`<img src="${img(c.id)}">`);press(w,()=>({c,pi,f:false}),()=>{});$('.g',v).append(w)});
   $('button',v).onclick=()=>v.hidden=true;v.hidden=false}
 function openGy(sd){const pi=pIdx(sd),p=P(pi);view(`Cementerio del Jugador ${pi+1} (${p.grave.length}) · Desterradas (${p.ban.length})`,[...p.grave,...p.ban],pi)}
-function openExt(sd){const pi=pIdx(sd);if(pi!=G.turn||G.curtain)return say(`Deck Extra del rival: ${P(pi).ext.length} cartas.`);const adm=admFus(pi)&&G.phase!='battle'&&!busy();
-  view(`Tu Deck Extra (${P(pi).ext.length})${adm?' · tocá para invocar (admin)':''}`,P(pi).ext,pi,adm?c=>{$('#gyv').hidden=true;if(!free(pi))return say('Tu campo está lleno.');const f=take(pi,'ext',c.u);if(f){spSum(pi,f,'a',{mats:[]});msg('(Admin) Fusión libre.');ui()}}:null)}
+function openExt(sd){const pi=pIdx(sd);if(pi!=VIEW()||G.curtain)return say(`Deck Extra del rival: ${P(pi).ext.length} cartas.`);view(`Tu Deck Extra (${P(pi).ext.length})`,P(pi).ext,pi)}
 function zoneClick(sd,i){
-  if(G.over||G.curtain||G.ask)return;
+  if(busy())return;
   const pi=pIdx(sd),m=P(pi).field[i],md=G.mode,k=md&&md.k;
   if(k=='tg'){if(tgValid(md,pi,'m',i))tgDone(md,pi,'m',i);return}
   if(k=='trib'&&pi==G.turn&&m&&!m.nt){const s=md.sel,j=s.indexOf(i);j>=0?s.splice(j,1):s.push(i);if(s.length==md.nd)return place(md.h,md.pos,s);return ui()}
@@ -827,8 +818,8 @@ function tween(e,pi,to){const from=shown[pi],t0=performance.now();shown[pi]=to;
   (function f(t){const k=Math.min(1,(t-t0)/500);e.textContent=Math.round(from+(to-from)*k)+' LP';if(k<1)requestAnimationFrame(f)})(t0)}
 function hud(id,pi){const p=P(pi),h=$(id);$('.nm',h).textContent='Jugador '+(pi+1);$('.lpb i',h).style.width=Math.min(100,p.lp/LP0*100)+'%';
   const l=$('.lpb span',h);shown[pi]!==p.lp?tween(l,pi,p.lp):l.textContent=p.lp+' LP'}
-function zones(sd,pi){const p=P(pi),s=Z[sd],md=G.mode,k=md&&md.k,mine=pi==G.turn,S=G.sel,
-  hc=mine&&S&&S.z=='h'&&me().hand[S.i],vm=hc&&cd(hc).ty=='m'&&!SPK.has(cd(hc).k)&&!cd(hc).dead&&G.phase!='battle'&&!G.summoned&&!G.mode;
+function zones(sd,pi){const p=P(pi),s=Z[sd],md=G.mode,k=myTurn()&&md&&md.k,mine=pi==VIEW(),S=myTurn()?G.sel:null,
+  hc=mine&&S&&S.z=='h'&&P(pi).hand[S.i],vm=hc&&cd(hc).ty=='m'&&!SPK.has(cd(hc).k)&&!cd(hc).dead&&G.phase!='battle'&&!G.summoned&&!G.mode;
   p.field.forEach((m,i)=>{let c='z mz '+sd;
     if(m){c+=' has';if(S&&S.z=='f'&&S.pi==pi&&S.i==i)c+=' sel';if(k=='atk'&&!mine)c+=' tgt';if(k=='tg'&&tgValid(md,pi,'m',i))c+=' tgt';
       if(k=='trib'&&mine&&!m.nt)c+=md.sel.includes(i)?' on':' trb';if(m.u==G.fresh)c+=' new'}
@@ -842,12 +833,12 @@ function zones(sd,pi){const p=P(pi),s=Z[sd],md=G.mode,k=md&&md.k,mine=pi==G.turn
   const g=p.grave[p.grave.length-1];
   s.gy.className='z u gy '+sd+(g?' has':'');s.gy.innerHTML=g?`<img src="${img(g.id)}"><span class="cnt">${p.grave.length}</span>`:'';
   s.dk.className='z u dk '+sd+(p.deck.length?' has':'');s.dk.innerHTML=p.deck.length?`<img src="${BACK}"><span class="cnt">${p.deck.length}</span>`:''}
-function hand(){const b=$('#hand'),n=me().hand.length,cw=Z.b.m[0].offsetWidth||40,hw=cw*1.9,w=b.clientWidth||cw*7,st=n>1?Math.min(hw*.62,(w-hw)/(n-1)):0;
+function hand(){const b=$('#hand'),n=P(VIEW()).hand.length,cw=Z.b.m[0].offsetWidth||40,hw=cw*1.9,w=b.clientWidth||cw*7,st=n>1?Math.min(hw*.62,(w-hw)/(n-1)):0;
   b.style.setProperty('--hw',hw+'px');b.innerHTML='';
-  me().hand.forEach((c,i)=>{const k=i-(n-1)/2,e=el('div','hc'+(G.sel&&G.sel.z=='h'&&G.sel.i==i?' sel':''));
+  P(VIEW()).hand.forEach((c,i)=>{const k=i-(n-1)/2,e=el('div','hc'+(myTurn()&&G.sel&&G.sel.z=='h'&&G.sel.i==i?' sel':''));
     e.style.cssText=`left:${w/2-hw/2+k*st}px;--r:${k*(n>6?3.5:5)}deg;--y:${k*k*(n>6?1.6:2.4)}px;z-index:${i}`;
     e.innerHTML=`<img src="${img(c.id)}" draggable="false">`;
-    press(e,()=>({c,pi:G.turn,f:false}),()=>tapHand(i),i);b.append(e)})}
+    press(e,()=>({c,pi:VIEW(),f:false}),()=>tapHand(i),i);b.append(e)})}
 function acts(){const b=$('#acts');b.innerHTML='';const add=(t,f,c)=>{const x=el('button',c,t);x.onclick=f;b.append(x)};
   if(busy())return;const md=G.mode,m=md&&md.k;
   if(m=='tg'){if(!md.nc)add('Cancelar',()=>{G.mode=null;G.Q=[];ui()},'r');return}
@@ -867,14 +858,15 @@ function acts(){const b=$('#acts');b.innerHTML='';const add=(t,f,c)=>{const x=el
 function modal(){const md=$('#gyv'),a=G.ask,pk=md.dataset.pk;
   const show=h=>{md.innerHTML=h;md.hidden=false;md.dataset.pk=1};
   if(a){
-    if(a.pi!=G.turn&&!a.ok&&!G.over){show(`<div><h2>Jugador ${a.pi+1}</h2><p>Pasale el celular al Jugador ${a.pi+1} y tocá Continuar.</p><button>Continuar</button></div>`);$('button',md).onclick=()=>{a.ok=true;ui()};md.classList.add('pass');return}
+    if(online()&&a.pi!==ME){md.hidden=true;return}
+    if(a.pi!=G.turn&&!a.ok&&!G.over&&!online()){show(`<div><h2>Jugador ${a.pi+1}</h2><p>Pasale el celular al Jugador ${a.pi+1} y tocá Continuar.</p><button>Continuar</button></div>`);$('button',md).onclick=()=>{a.ok=true;ui()};md.classList.add('pass');return}
     md.classList.remove('pass');
     if(a.k=='ask'){show(`<h3>${a.t}</h3><div class="ob"></div>`);a.o.forEach((o,j)=>{const b=el('button','nb',o[0]);b.onclick=()=>answer(j);$('.ob',md).append(b)})}
     else{show(`<h3>${a.t}</h3><div class="g"></div>${a.opt?'<p><button class="nb">Omitir</button></p>':''}`);
       a.list.forEach((c,j)=>{const w=el('div','gc',`<img src="${img(c.id)}">`);press(w,()=>({c,pi:a.pi,f:false}),()=>chosen(j));$('.g',md).append(w)});
       if(a.opt)$('button',md).onclick=()=>chosen(-1)}
     return}
-  if(G.mode&&G.mode.k=='peek'){const M=G.mode;
+  if(G.mode&&G.mode.k=='peek'&&(!online()||G.mode.pi===ME)){const M=G.mode;
     show(`<h3>Jugador ${M.pi+1} · Gran Ojo: tocá las cartas en el orden que querés (la primera queda arriba)</h3><div class="g"></div>`);
     M.cards.forEach((c,i)=>{const on=M.ord.indexOf(i),w=el('div','gc',`<img src="${img(c.id)}">${on>=0?`<span class="cnt">${on+1}</span>`:''}`);
       press(w,()=>({c,pi:M.pi,f:false}),()=>{if(M.ord.includes(i))return;M.ord.push(i);
@@ -883,8 +875,8 @@ function modal(){const md=$('#gyv'),a=G.ask,pk=md.dataset.pk;
 function hintText(){const md=G.mode,k=md&&md.k;
   return k=='trib'?`Elegí ${md.nd-md.sel.length} tributo(s) de tu campo`:k=='atk'?'Elegí un objetivo rival':k=='tg'?md.t:k=='disc'?`Descartá ${me().hand.length-HLIM} carta(s) de tu mano`:''}
 function render(){
-  hud('#hudB',G.turn);hud('#hudT',1-G.turn);zones('b',G.turn);zones('t',1-G.turn);
-  $('.oh',$('#hudT')).innerHTML=op().hand.map(()=>`<img src="${BACK}">`).join('');
+  hud('#hudB',VIEW());hud('#hudT',1-VIEW());zones('b',VIEW());zones('t',1-VIEW());
+  $('.oh',$('#hudT')).innerHTML=P(1-VIEW()).hand.map(()=>`<img src="${BACK}">`).join('');
   const ph=[['main','Principal'],['battle','Batalla'],['main2','Principal 2']];
   $('#chips').innerHTML=`<b>Turno ${G.n}</b>`+ph.map(([k,l])=>`<b class="${G.phase==k?'on':''}">${l}</b>`).join('');
   const nb=$('#nextBtn');nb.textContent=G.phase=='main'?(G.n===1?'Sin batalla':'Batalla'):'Fase 2';nb.disabled=!!(busy()||G.mode||G.phase=='main2');
@@ -893,10 +885,10 @@ function render(){
   const ht=hintText();$('#hint').textContent=ht;$('#hint').hidden=!ht;
   hand();acts();modal();
   const c=$('#curtain');c.hidden=!(G.over||G.curtain);
-  if(G.over){c.innerHTML=`<div><h2>🏆 Gana el Jugador ${G.over.w+1}</h2><p>${G.over.why}</p><button>Nueva partida</button></div>`;$('button',c).onclick=()=>{$('#menu').hidden=true;newGame()}}
+  if(G.over){c.innerHTML=`<div><h2>🏆 Gana el Jugador ${G.over.w+1}</h2><p>${G.over.why}</p><button>${online()&&ME==1?'Esperá al anfitrión…':'Nueva partida'}</button></div>`;$('button',c).onclick=()=>{if(online()&&ME==1)return;$('#menu').hidden=true;newGame()}}
   else if(G.curtain){c.innerHTML=`<div><h2>Turno del Jugador ${G.turn+1}</h2><p>Turno ${G.n}. Pasale el celular y tocá para ver tu mano.</p><button>Continuar</button></div>`;$('button',c).onclick=()=>{G.curtain=false;ui()}}}
-const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(G))}catch(e){}};
-function ui(){statics();flush();save();render()}
+const save=()=>{if(online())return;try{localStorage.setItem(KEY,JSON.stringify(G))}catch(e){}};
+function ui(){statics();flush();if(online())G.curtain=false;save();render();if(online())netSend()}
 
 // ===== Menú y constructor de mazos =====
 const norm=t=>t.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
@@ -905,17 +897,24 @@ function randomDeck(){const pool=C.filter(c=>!c.fus&&!c.dead).map(c=>c.id),d=[];
   while(d.length<40){const id=pool[Math.random()*pool.length|0];if(d.filter(x=>x==id).length<3)d.push(id)}
   shuffle([...okFus]).slice(0,3).forEach(id=>d.push(id));return d.sort((a,b)=>a-b)}
 const mainN=a=>a.filter(i=>!C[i-1].fus).length,extN=a=>a.filter(i=>C[i-1].fus).length;
-function loadDecks(){let d;try{d=JSON.parse(localStorage.getItem('duel-decks-v2'))}catch(e){}
-  DK=[0,1].map(i=>d&&Array.isArray(d[i])&&d[i].every(x=>C[x-1])&&mainN(d[i])>=40&&mainN(d[i])<=60&&extN(d[i])<=MAXX?d[i]:randomDeck())}
-const saveDecks=()=>{try{localStorage.setItem('duel-decks-v2',JSON.stringify(DK))}catch(e){}};
-function showMenu(){$('#builder').hidden=true;$('#menu').hidden=false;$('#bCont').hidden=!SAVED;
-  $('#mi').textContent=`Jugador 1: ${mainN(DK[0])} + ${extN(DK[0])} extra · Jugador 2: ${mainN(DK[1])} + ${extN(DK[1])} extra`}
+const okDeck=a=>Array.isArray(a)&&a.every(x=>C[x-1])&&mainN(a)>=40&&mainN(a)<=60&&extN(a)<=MAXX;
+function loadDecks(){let d,n,c;try{d=JSON.parse(localStorage.getItem('duel-decks-v2'))}catch(e){}
+  try{n=JSON.parse(localStorage.getItem('duel-dnames-v1'))}catch(e){}
+  try{c=JSON.parse(localStorage.getItem('duel-custom-v1'))}catch(e){}
+  CD=Array.isArray(c)?c.filter(x=>x&&x.n&&okDeck(x.ids)):[];
+  const def=[PD[0],PD[1]];                            // primera vez: Yugi vs Kaiba
+  DK=[0,1].map(i=>d&&okDeck(d[i])?d[i]:def[i].ids.slice().sort((a,b)=>a-b));
+  DN=[0,1].map(i=>d&&okDeck(d[i])?(n&&typeof n[i]=='string'?n[i]:''):deckLabel(def[i]))}
+const saveDecks=()=>{try{localStorage.setItem('duel-decks-v2',JSON.stringify(DK));localStorage.setItem('duel-dnames-v1',JSON.stringify(DN))}catch(e){}};
+const saveCD=()=>{try{localStorage.setItem('duel-custom-v1',JSON.stringify(CD.map(({n,s,g,ids})=>({n,s,g,ids}))))}catch(e){}};
+function showMenu(){$('#builder').hidden=$('#lib').hidden=$('#libD').hidden=true;$('#menu').hidden=false;$('#bCont').hidden=!SAVED;
+  $('#mi').textContent=[0,1].map(i=>`Jugador ${i+1}: ${DN[i]||'Mazo personalizado'} (${mainN(DK[i])} + ${extN(DK[i])} extra)`).join('\n')}
 function startDuel(){const bad=DK.findIndex(d=>mainN(d)<40||mainN(d)>60);
   if(bad>=0){say(`El mazo del Jugador ${bad+1} debe tener entre 40 y 60 cartas.`);return openBuilder(bad)}
   $('#menu').hidden=true;SAVED=null;newGame()}
 let BD=[],BI=0;
 const cnt=id=>BD.filter(x=>x==id).length;
-function openBuilder(pi){BI=pi;BD=[...DK[pi]].sort((a,b)=>a-b);$('#menu').hidden=true;$('#builder').hidden=false;
+function openBuilder(pi,ids,name){BI=pi;BD=[...(ids||DK[pi])].sort((a,b)=>a-b);BN=ids?name:(DN[pi]||'');BO=keyOf(BD);$('#menu').hidden=true;$('#builder').hidden=false;
   $('#bT').textContent=`Mazo del Jugador ${pi+1}`;$('#q').value='';$('#flt').value='';drawB()}
 function addC(id){const c=C[id-1];
   if(cnt(id)>=3)return say('Solo puede haber 3 copias de la misma carta.');
@@ -926,72 +925,140 @@ function delC(i){BD.splice(i,1);snd(300,.06);drawB()}
 function tile(id,tap,dz,n,cl){const c=C[id-1],w=el('div','tile'+(n>=3?' full':'')+(cl?' '+cl:'')+(c.dead?' dead':''),`<img loading="lazy" src="${img(id)}">${n?`<span class="cnt">${n}/3</span>`:''}${c.dead?'<i class="bad">!</i>':''}`);
   press(w,()=>({c:{id},pi:0,f:false}),tap,null,dz,true);return w}
 function drawB(){
-  $('#bC').textContent=`Principal ${mainN(BD)}/60 (mín. 40) · Extra ${extN(BD)}/${MAXX}`;
+  $('#bN').textContent='📚 '+(curLabel()||'Mazo personalizado');$('#bC').textContent=`Principal ${mainN(BD)}/60 (mín. 40) · Extra ${extN(BD)}/${MAXX}`;
   const ord=[...BD.map((id,i)=>({id,i}))].sort((a,b)=>C[a.id-1].fus-C[b.id-1].fus||a.i-b.i);
   $('#dk').replaceChildren(...ord.map(o=>tile(o.id,()=>delC(o.i),null,0,C[o.id-1].fus?'ex':'')));
   const q=norm($('#q').value),f=$('#flt').value;
   $('#col').replaceChildren(...C.filter(c=>(!q||norm(c.n).includes(q))&&(!f||(f=='m'?c.ty=='m'&&!c.fus:f=='s'?c.ty=='s':f=='p'?c.ty=='p':c.fus)))
     .map(c=>tile(c.id,()=>addC(c.id),['#dk',()=>addC(c.id)],cnt(c.id),c.fus?'ex':'')))}
 
-// ===== Modo administrador oculto =====
-// Acceso: 3 toques seguidos al botón de sonido durante la partida -> teclado numérico -> contraseña.
-const PWH=2088294963,hsh=s=>{let h=5381;for(const c of s)h=((h<<5)+h+c.charCodeAt(0))>>>0;return h};
-const inGame=()=>!!G&&$('#menu').hidden&&$('#builder').hidden;
-let mt=[],mutePrev=false,pin='';
-function volPress(btn){const now=Date.now();mt=mt.filter(t=>now-t<1800);if(!mt.length)mutePrev=mute;mt.push(now);
-  if(btn){mute=!mute;$('#muteBtn').textContent=mute?'🔇':'🔊'}
-  if(mt.length>=3){mt=[];if(btn){mute=mutePrev;$('#muteBtn').textContent=mute?'🔇':'🔊'}adminGesture()}}
-function adminGesture(){if(!inGame())return;
-  if(ADM.on){ADM.on=false;closeAdm();$('#pad').hidden=true;say('Modo administrador desactivado')}else openPad()}
-function drawPad(){$('#pd').textContent='●'.repeat(pin.length)+'○'.repeat(Math.max(0,4-pin.length))}
-function openPad(){pin='';drawPad();$('#pad').hidden=false}
-function padKey(k){if(k=='<')pin=pin.slice(0,-1);else if(k=='ok'){}else if(pin.length<4)pin+=k;drawPad();
-  if(pin.length==4||k=='ok'){if(pin.length==4&&hsh(pin)==PWH){$('#pad').hidden=true;ADM.on=true;say('Modo administrador activado');openAdm()}
-    else if(pin.length==4){const b=$('.padbox');b.classList.remove('shake');void b.offsetWidth;b.classList.add('shake');say('Contraseña incorrecta');pin='';setTimeout(drawPad,250)}}}
-(function(){const k=$('.pk');['1','2','3','4','5','6','7','8','9','<','0','ok'].forEach(x=>{const b=el('button','',x=='<'?'⌫':x=='ok'?'✓':x);b.onclick=()=>padKey(x);k.append(b)});$('#padX').onclick=()=>$('#pad').hidden=true})();
-const SW=[['free','Invocar sin sacrificios (cualquier monstruo)'],['fuse','Fusiones libres: sin Polimerización ni materiales'],['bT','Bloquear Trampas del rival'],['bS','Bloquear Mágicas del rival'],['bE','Bloquear efectos de monstruos del rival']];
-function openAdm(){if(!ADM.on||!G)return;$('#adm').hidden=false;drawAdm()}
-function closeAdm(){$('#adm').hidden=true}
-function drawAdm(){const a=$('#asw');
-  a.innerHTML=`<div class="sw"><span>Jugador administrador</span><span class="seg"><button class="${ADM.pl==0?'on':''}" data-p="0">Jugador 1</button><button class="${ADM.pl==1?'on':''}" data-p="1">Jugador 2</button></span></div>`;
-  a.querySelectorAll('.seg button').forEach(b=>b.onclick=()=>{ADM.pl=+b.dataset.p;drawAdm()});
-  SW.forEach(([k,t])=>{const s=el('div','sw'+(ADM[k]?' on':''),`<span>${t}</span><i></i>`);s.onclick=()=>{ADM[k]=!ADM[k];s.classList.toggle('on',ADM[k])};a.append(s)});
-  $('#asrc').value=ADM.src;admGrid();admSheet(null)}
-function admGrid(){const q=norm($('#aq').value);let ids;
-  if(ADM.src=='deck'&&G){const p=P(ADM.pl),m={};[...p.deck,...p.ext].forEach(c=>m[c.id]=(m[c.id]||0)+1);ids=Object.keys(m).map(Number).sort((a,b)=>a-b).map(id=>[id,m[id]])}
-  else ids=C.map(c=>[c.id,0]);
-  $('#agrid').replaceChildren(...ids.filter(([id])=>!q||norm(C[id-1].n).includes(q)).map(([id,n])=>{const t=tile(id,()=>admSheet(id),null,0,'');if(n)t.append(el('span','cnt','×'+n));return t}))}
-function admSheet(id){const s=$('#aact');if(id==null){s.hidden=true;return}const c=C[id-1];s.hidden=false;s.innerHTML=`<b>${c.n}</b>`;
-  const b=(t,f)=>{const x=el('button','nb',t);x.onclick=f;s.append(x)};
-  if(!c.fus)b('A la mano',()=>admAdd(id,'h'));
-  if(c.ty=='m'){b(c.fus?'Fusión · Ataque':'Invocar · Ataque',()=>admAdd(id,'a'));b(c.fus?'Fusión · Defensa':'Invocar · Defensa',()=>admAdd(id,'d'))}
-  b('✕',()=>admSheet(null))}
-function admAdd(id,how){if(!G||G.over)return say('No hay partida en curso.');const pl=ADM.pl,p=P(pl),c0=C[id-1];
-  if(how!='h'&&!free(pl))return say('El campo del jugador administrador está lleno.');
-  let c;if(ADM.src=='deck'){const z=c0.fus?'ext':'deck',f=p[z].find(x=>x.id==id);if(!f)return say('Esa carta ya no está en tu mazo.');c=take(pl,z,f.u)}else c={id,u:++uid};
-  if(how=='h'){p.hand.push(c);chkEx(pl);msg(`(Admin) ${c0.n} a la mano.`)}
-  else{const m=spSum(pl,c,how,c0.fus?{mats:[]}:{});if(!m){p.hand.push(c);return say('No se pudo invocar.')}msg(`(Admin) ${c0.n} invocado${c0.fus?' por Fusión libre':' sin sacrificios'}.`)}
-  ui();admGrid()}
-$('#aOff').onclick=()=>{ADM.on=false;closeAdm();say('Modo administrador desactivado')};$('#aX').onclick=closeAdm;
-$('#aq').oninput=admGrid;$('#asrc').onchange=e=>{ADM.src=e.target.value;admGrid();admSheet(null)};
+const PD=[
+ {n:"Yugi Muto",s:"Rey de los Juegos",g:"Personaje",cv:[139,16,126],d:"El mazo clásico de Yugi: Mago Oscuro, Maga Oscura, Convoca al Craneo, Gaia y Maldición de Dragón. Polimerización fusiona a Gaia + Maldición de Dragón en el Campeón Dragón. Kuriboh y Mago del Tiempo cubren los apuros; Espadas, Espejo y Cilindro frenan al rival.",c:"16x2 106x2 120x2 126x2 139x2 141x2 142x2 143x2 145x2 161x2 222 223 229x2 231x2 232 233 234 236 239 240 243x2 244 246x2 249 260 264 270 276"},
+ {n:"Seto Kaiba",s:"Ojos Azules Clásico",g:"Personaje",cv:[105,186,204],d:"Dragones Blancos de Ojos Azules apoyados por el cementerio: Santuario de Dragones manda Dragones al Cementerio y Grito Plateado, Renacimiento del Dragón y Monstruo Renacido los traen de vuelta sin sacrificios. Rayo Explosivo de la Destrucción barre el Campo rival.",c:"25x2 36 104x3 105x3 108x2 111x2 151x2 186 204 205x2 206x2 207x2 209 211x2 218x2 220x2 223 229x3 231x2 243x2 246 264 270 276"},
+ {n:"Seto Kaiba",s:"Dragón Definitivo",g:"Personaje",cv:[218,105,12],d:"La combinación soñada: 3 Dragones Blancos de Ojos Azules + Polimerización = Dragón de Ojos Azules Definitivo (4500 ATK). La Diosa del Tercer Ojo sustituye a un material, así que bastan 2 Ojos Azules. Puerta de Fusión permite fusionar sin gastar Polimerización.",c:"12x3 25 104x2 105x3 108x2 111x2 151x3 161x2 211x2 218x3 226x2 229x3 231x2 243x2 246x2 260 264x2 265 270x2 276 281x2"},
+ {n:"Joey Wheeler",s:"Duelista de la Suerte",g:"Personaje",cv:[186,120,108],d:"El Dragón Negro de Ojos Rojos como estrella y Mago del Tiempo para jugarte todo a cara o cruz. Mago del Tiempo + Bebé Dragón (con Polimerización) dan el Dragón Milenario. Guerreros sólidos como Incursor del Hacha y Gearfried acompañan.",c:"27x2 77 108x3 120x3 151 173x3 178x2 182x3 186x3 209 221 222 223 229x3 231x2 240 243x2 244 246x2 260 264 270x2 275 276 278"},
+ {n:"Mai Valentine",s:"Arpías y Trampas",g:"Personaje",cv:[165,117,21],d:"Criaturas aladas para aguantar y un muro de Trampas para castigar: Fuerza de Espejo, Cilindro Mágico, Waboku y Negar Ataque. Espadas de la Luz Reveladora compra tiempo y Monstruo Renacido recupera a tus mejores aves.",c:"21x2 29x2 91x2 111x2 117x2 151 161x2 165x3 222 223x2 228 231x2 236x2 240 243x3 244 246x3 260x2 263 264 270x2 273 276"},
+ {n:"Weevil Underwood",s:"Plaga de Insectos",g:"Personaje",cv:[154,155,248],d:"Enjambre de Insectos potenciado por el Bosque (+200) y la Armadura de Cañón Láser (+300). Pinch Hopper invoca más bichos al caer, Insecto Come-hombres destruye lo que toca al voltearse y Reina Insecto crece con cada Insecto del Campo.",c:"152x2 153x3 154x2 155x2 156x2 157x2 158x2 209 223 231 243x2 244 246x2 247 248x3 249x3 254 256x3 258x3 260 270x2"},
+ {n:"Rex Raptor",s:"Furia Jurásica",g:"Personaje",cv:[136,183,184],d:"Dinosaurios agresivos de buenos ATK a bajo nivel: Rey de Dos Cabezas Rex, Uraby y Dragon Rastrero #2, con Megazowler y Brazo Espada del Dragón como remate. Caja Mística y Toma Almas abren camino; muchas Trampas protegen tu ofensiva.",c:"115x2 136x3 151 162x3 183x2 184x3 185x3 209 222 223x2 228x2 231x2 240x2 243x3 244 246x2 260x2 264 270x2 273 276"},
+ {n:"Mako Tsunami",s:"Reino del Mar",g:"Personaje",cv:[177,163,193],d:"Criaturas marinas de ATK alto para su nivel: Kairyu-Shin, Blanco Gigante, Kraken Demoniaco y Malagua. Tortuga Catapulta convierte tus monstruos en daño directo. Trampas defensivas aguantan mientras el océano hace el resto.",c:"35 45 55x2 82 97x2 163x3 174x2 175x2 177x3 193x2 209 223x2 228x2 231x2 240 243x3 244 246x3 260x2 264 270x2 276"},
+ {n:"Yami Bakura",s:"Ejército de Zombis",g:"Personaje",cv:[187,202,22],d:"Zombis baratos que se vuelven monstruosos: Castillo de las Ilusiones Oscuras da +200 ATK/DEF a todos y la Calabaza Rey de los Fantasmas crece con él. Entierro Insensato, Llamado de los Condenados y Máscara de la Oscuridad mantienen el ciclo del Cementerio.",c:"3x2 22x3 58 128x2 134x2 140x2 187x3 199x2 200x3 201x2 202x2 203 209x3 221x3 223 229 231x2 243x2 244x2 246 270 276"},
+ {n:"Marik Ishtar",s:"Slifer, el Dragón del Cielo",g:"Personaje",cv:[224,161,226],d:"Monstruos de nivel bajo como carne de sacrificio y una mano llena: Slifer tiene 1000 ATK/DEF por cada carta en tu mano y debilita a los atacantes rivales al entrar. Cartas que roban y Trampas defensivas mantienen la mano grande mientras esperás a tu Dios.",c:"26x2 96x2 113x2 120 128x2 151x2 161x3 224x2 226x2 231 243x2 246x2 249 260x2 263 264x3 265x2 270x3 275x2 276x3"},
+ {n:"Exodia",s:"Búsqueda del Prohibido",g:"Estrategia",cv:[125,122,123],d:"Reuní las 5 piezas del Prohibido en tu mano y ganás al instante. 15 piezas, mucho robo (Olla de la Dualidad, Goblin Insolente, Destrucción de la Carta, Legado de Yata-Garatsu) y Gran Ojo para ordenar tus próximas cartas. Waboku y Negar Ataque te dan tiempo.",c:"76x3 121x3 122x3 123x3 124x3 125x3 151x3 161 193x2 260 263 264x3 265x3 270x2 275x2 276x3 279"},
+ {n:"Mago Oscuro",s:"Linaje de Magos",g:"Estrategia",cv:[139,16,72],d:"Todo gira en torno al Mago Oscuro y la Maga Oscura. Cortina de Magia Oscura y La Piedra del Sabio lo invocan sin sacrificios; Mil Cuchillos y Ataque Mágico Oscuro limpian el Campo. Con Mago del Tiempo, si la moneda sale bien, entra el Sabio Oscuro.",c:"15x3 16x3 19x2 72 106 120x2 139x3 148x2 170 222 223 231 232x2 233x2 234x2 239x2 240 241 243x2 244 246x2 260 264 270 276"},
+ {n:"Dragones",s:"Barranco del Dragón",g:"Estrategia",cv:[213,217,215],d:"Mazo de Dragones de élite: Barranco del Dragón (Mágica de Campo) manda Dragones al Cementerio descartando, y Monstruo Renacido, Grito Plateado y el Dragón del Génesis los devuelven. Con Barranco en juego podés invocar al Malicioso Dragón Blanco de Ojos Azules sin sacrificios.",c:"25 104x2 105x2 108x2 114x2 135x2 143x2 186x3 197 204 205x2 206 207x2 210 211x2 213 215 217x2 219x3 220x2 221 231x2 243 246"},
+ {n:"Fusión",s:"Maestro de la Puerta de Fusión",g:"Estrategia",cv:[173,141,12],d:"Todas las fusiones del juego en un mazo: Dragón Milenario, Gaia el Campeón Dragón, Guerrero de Karbonala, Zombi Guerrero y Dragón de Fuego Oscuro. Polimerización, Puerta de Fusión y De-Fusión mueven las piezas; la Diosa del Tercer Ojo sustituye a cualquier material.",c:"12x3 62x2 65x2 66x2 73x2 104x2 108x3 120x3 128x2 134x2 141x2 142x2 143x2 147x2 151 173x2 203x2 223 229x3 231 238 243 246 260 264 270 276 281x2"},
+ {n:"Cementerio",s:"Reanimación Eterna",g:"Estrategia",cv:[186,126,22],d:"Mandá lo más grande al Cementerio y revivilo gratis: Entierro Insensato, Monstruo Renacido y Llamado de los Condenados traen de vuelta al Dragón Negro de Ojos Rojos, al Mago Oscuro y a Convoca al Craneo. Sangan y la Máscara de la Oscuridad reciclan lo que necesitas.",c:"3x2 22x2 72 126x2 139x2 142 143x2 151x3 161 186x3 200x2 205x2 209x3 220 221x3 231x3 243 244x2 246 264 270 276"},
+ {n:"Daño Directo",s:"Simochi y Tarjeta de Regalo",g:"Estrategia",cv:[274,271,79],d:"Ganás sin atacar: con Mala Reacción de Simochi en juego, cada LP que el rival \"gana\" se convierte en daño. Tarjeta de Regalo (3000), Toma Almas y Goblin Insolente (1000 c/u) suman, y Pájaro Sigiloso, Tortuga Catapulta y Flecha Rompedora rematan.",c:"79x3 126x2 151x2 161x3 193x3 226x3 228x3 231 235x2 243 246x3 260 264 265x3 270x2 271x3 274x3 276"},
+ {n:"Sacrificio Letal",s:"Tortuga Catapulta",g:"Estrategia",cv:[193,151,126],d:"Sacrificá monstruos fuertes a la Tortuga Catapulta para infligir la mitad de su ATK como daño directo, y recuperá piezas con Sangan, Pinch Hopper y Monstruo Renacido. Pájaro Sigiloso y Waboku mantienen vivo el motor.",c:"79x2 126x2 137 142 151x3 161x2 186 189x2 193x3 209x2 226x2 228x2 231x3 243 244 246x2 248x2 260x2 264x2 265 270x2 276"},
+ {n:"Jinzo",s:"Anulador de Trampas",g:"Estrategia",cv:[20,56,28],d:"Jinzo niega todas las Trampas del Campo, así que este mazo no lleva ninguna: puro monstruo y Magia. Jinzo - Señor se invoca sacrificando a Jinzo. Sangan y Convoca al Craneo dan cuerpo; Toma Almas, Caja Mística y Monstruo Renacido controlan la partida.",c:"20x3 28x2 56 71 76 110 126x2 137x2 139 151x3 161x2 189x2 191x2 208 209x2 226 228x3 231x3 235 237 240x2 264x2 265"},
+ {n:"Gaia, el Caballero Feroz",s:"Guerreros y Fusiones",g:"Estrategia",cv:[142,141,147],d:"Guerreros sólidos con dos fusiones: Gaia + Maldición de Dragón = Gaia, el Campeón Dragón, y M-Guerrero Nº 1 + Nº 2 = Guerrero de Karbonala. La Diosa del Tercer Ojo sustituye a un material y Puerta de Fusión ahorra la Polimerización.",c:"12x2 27x2 65x3 66x3 77 141x3 142x3 143x2 145x3 147x3 171 182x3 222 223 229x3 231x2 240 243x2 244 246x2 260 270 276 281"},
+ {n:"Bosque",s:"Bestias y Plantas",g:"Estrategia",cv:[118,256,131],d:"El Bosque da +200 ATK/DEF a Insectos, Bestias, Plantas y Bestias Guerreras. Toro de Batalla, Buey de Batalla y Guerrero Castor atacan fuerte, mientras León Durmiente y Jinete Místico sostienen la defensa.",c:"24x2 63x2 107x2 112x2 118x3 130x2 131x2 149 164x2 167x2 168 195x2 221 223 231x2 240 243x2 244 246x2 256x3 260 270x2 276"},
+ {n:"Hadas",s:"Muro Celestial",g:"Estrategia",cv:[194,106,75],d:"Control defensivo con monstruos de DEF altísima (Duende Místico y Espíritu del Arpa con 2000) y un muro de Trampas y Espadas de la Luz Reveladora. Gyakutenno Megami y Orión cierran la partida cuando el rival se queda sin recursos.",c:"12 14x2 30x2 75x3 96x2 102x2 106x3 151 161 194x2 223 228 231 236x3 243x2 246x2 259 260x3 263x2 264 270x2 273x2"},
+ {n:"Demonios",s:"Segadora de Cartas",g:"Estrategia",cv:[126,188,189],d:"Los Demonios del inframundo: Convoca al Craneo (2500 ATK con un solo sacrificio), Rey de Yamimakai y Quimera Oscura. Sangan y Kuriboh dan consistencia; la Segadora de las Cartas destruye Trampas rivales al voltearse.",c:"74 76 79 109 110x2 126x3 129x2 151x3 161x2 188x2 189x2 191x2 192 198 209 223 228x2 231x2 240 243x2 244 246x2 260 264 270 276"},
+ {n:"Torneo",s:"Control Clásico",g:"Estrategia",cv:[20,126,151],d:"Lo mejor de lo mejor sin una identidad fija: pocos monstruos pero muy buenos, tres Monstruo Renacido, Caja Mística, Toma Almas y una pared de Trampas. Si no tenés idea de qué mazo elegir, empezá por este.",c:"20 76 120 126x2 137 142 151x3 161x2 186 189 209 223 226x2 228x2 231x3 237 240x2 243x3 246x2 260x2 263 264 265 270 276x3"}
+];
+
+// ===== Biblioteca de mazos =====
+const parseC=s=>s.split(' ').flatMap(t=>{const[a,b]=t.split('x');return Array(+(b||1)).fill(+a)});
+PD.forEach(p=>{p.ids=parseC(p.c);p.pre=1});
+let DN=['',''],CD=[],BN='',BO='',LM='menu',LB=null;
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const keyOf=a=>[...a].sort((x,y)=>x-y).join(','),baseN=s=>(s||'').replace(/ · editado$/,'');
+const curLabel=()=>BN?(keyOf(BD)==BO?BN:baseN(BN)+' · editado'):'';
+const deckLabel=p=>p.s?`${p.n} — ${p.s}`:p.n;
+const kinds=a=>({mo:a.filter(i=>C[i-1].ty=='m'&&!C[i-1].fus).length,sp:a.filter(i=>C[i-1].ty=='s').length,tr:a.filter(i=>C[i-1].ty=='p').length});
+const statLine=p=>{const k=kinds(p.ids);return `${mainN(p.ids)} + ${extN(p.ids)} extra · ${k.mo} monstruos · ${k.sp} magias · ${k.tr} trampas`};
+const cover=p=>p.cv||[...new Set(p.ids.filter(i=>C[i-1].ty=='m'))].sort((a,b)=>C[b-1].a-C[a-1].a).slice(0,3);
+const hay=p=>p._h||(p._h=norm([p.n,p.s,p.g,p.d,...new Set(p.ids.map(i=>C[i-1].n))].join(' ')));
+function openLib(mode){LM=mode;$('#lq').value='';$('#lf').value='';$('#menu').hidden=$('#builder').hidden=$('#libD').hidden=true;$('#lib').hidden=false;drawLib()}
+function drawLib(){const q=norm($('#lq').value).trim(),f=$('#lf').value,all=[...PD,...CD],
+  list=all.filter(p=>(!f||p.g==f)&&(!q||q.split(/\s+/).every(w=>hay(p).includes(w))));
+  $('#lC').textContent=`${list.length} mazo${list.length==1?'':'s'}`;
+  $('#ll').replaceChildren(...(list.length?list.map(libRow):[el('p','le','No hay mazos que coincidan con la búsqueda.')]))}
+function libRow(p){
+  const r=el('button','ld',`<span class="lc">${cover(p).map(i=>`<img src="${img(i)}" loading="lazy" alt="">`).join('')}</span><span class="li"><span class="ln"><b>${esc(p.n)}</b><i class="tg">${esc(p.g)}</i></span>${p.s?`<em>${esc(p.s)}</em>`:''}<small>${statLine(p)}</small></span>`);
+  r.onclick=()=>openLD(p);return r}
+function openLD(p){LB=p;$('#lib').hidden=true;$('#libD').hidden=false;
+  $('#ldT').textContent=deckLabel(p);
+  $('#ldI').innerHTML=`<p>${esc(p.d||'Mazo propio.')}</p><small>${statLine(p)}</small>`;
+  const g=$('#ldk'),cnt={};p.ids.forEach(i=>cnt[i]=(cnt[i]||0)+1);g.replaceChildren();
+  const sec=(t,ok,ex)=>{const ids=Object.keys(cnt).map(Number).filter(i=>ok(C[i-1])).sort((a,b)=>C[b-1].lv-C[a-1].lv||C[b-1].a-C[a-1].a||a-b);
+    if(!ids.length)return;g.append(el('h4','sc',`${t} (${ids.reduce((n,i)=>n+cnt[i],0)})`));
+    ids.forEach(i=>{const w=tile(i,()=>{},null,0,ex?'ex':'');w.append(el('span','cnt','×'+cnt[i]));g.append(w)})};
+  sec('Monstruos',c=>c.ty=='m'&&!c.fus);sec('Magias',c=>c.ty=='s');sec('Trampas',c=>c.ty=='p');sec('Deck Extra',c=>c.fus,1);g.scrollTop=0;
+  const B=$('#ldB');B.replaceChildren();
+  const add=(t,f,c)=>{const b=el('button','nb'+(c?' '+c:''),t);b.onclick=f;B.append(b)};
+  if(LM=='pick')add('📥 Cargar en el editor',()=>pickDeck(p),'ok');
+  else{add('▶ Usar en J1',()=>useDeck(0,p),'ok');add('▶ Usar en J2',()=>useDeck(1,p),'ok');add('✎ Editar en J1',()=>editDeck(0,p));add('✎ Editar en J2',()=>editDeck(1,p));
+    if(!p.pre)add('🗑 Eliminar',()=>delCD(p))}}
+const sortIds=p=>[...p.ids].sort((a,b)=>a-b);
+function useDeck(pi,p){DK[pi]=sortIds(p);DN[pi]=deckLabel(p);saveDecks();showMenu();say(`Jugador ${pi+1}: ${deckLabel(p)}`)}
+function editDeck(pi,p){$('#libD').hidden=true;openBuilder(pi,sortIds(p),deckLabel(p))}
+function pickDeck(p){BD=sortIds(p);BN=deckLabel(p);BO=keyOf(BD);$('#libD').hidden=true;$('#builder').hidden=false;drawB();say(`Cargado: ${deckLabel(p)}`)}
+function delCD(p){if(!confirm(`¿Eliminar el mazo "${p.n}"?`))return;CD=CD.filter(x=>x!==p);saveCD();$('#libD').hidden=true;$('#lib').hidden=false;drawLib()}
+$('#bLib').onclick=()=>openLib('menu');
+$('#lBack').onclick=()=>{if(LM=='pick'){$('#lib').hidden=true;$('#builder').hidden=false}else showMenu()};
+$('#ldBack').onclick=()=>{$('#libD').hidden=true;$('#lib').hidden=false};
+$('#lq').oninput=$('#lf').onchange=drawLib;
+
+// ===== ONLINE: red (PeerJS) =====
+function netSend(){try{if(NET&&NET.open)NET.send(JSON.stringify({t:'s',G,uid}))}catch(e){}}
+function netLost(){say('Se perdió la conexión con el rival.')}
+function netGot(d){
+  try{d=typeof d=='string'?JSON.parse(d):d}catch(e){return}
+  if(d.t==='deck'){                                   // solo lo recibe el anfitrión
+    if(!Array.isArray(d.deck)||!d.deck.every(x=>C[x-1]))return;
+    DK[1]=d.deck;$('#menu').hidden=true;newGame()}
+  else if(d.t==='s'){                                 // estado nuevo: solo dibujar, NO ejecutar lógica
+    const old=G&&G.log[0];G=d.G;uid=Math.max(uid,d.uid||0);$('#menu').hidden=true;
+    if(G.log[0]&&G.log[0]!==old)say(G.log[0]);
+    render()}}
+function netErr(e){say('Error de conexión: '+(e&&e.type||e));$('#mi').textContent='No se pudo conectar ('+(e&&e.type||'error')+'). Probá de nuevo.'}
+function netHost(){
+  if(typeof Peer=='undefined')return say('No cargó PeerJS (¿sin internet?).');
+  if(PEER){PEER.destroy();PEER=null}
+  const code=Math.random().toString(36).slice(2,6).toUpperCase();
+  PEER=new Peer('duelsimple-'+code);
+  PEER.on('error',netErr);
+  PEER.on('open',()=>{
+    const url=location.origin+location.pathname+'?sala='+code;
+    $('#mi').innerHTML='Sala <b>'+code+'</b><br>Tocá acá para copiar el link y mandáselo a tu amigo.<br>Esperando rival…';
+    $('#mi').onclick=()=>{navigator.clipboard&&navigator.clipboard.writeText(url).then(()=>say('Link copiado'))}});
+  PEER.on('connection',c=>{
+    if(NET){c.close();return}
+    c.on('open',()=>{NET=c;ME=0;say('¡Rival conectado!')});
+    c.on('data',netGot);c.on('close',netLost)})}
+function netJoin(code){
+  if(typeof Peer=='undefined')return say('No cargó PeerJS (¿sin internet?).');
+  code=(code||prompt('Código de sala:')||'').trim().toUpperCase();if(!code)return;
+  if(PEER){PEER.destroy();PEER=null}
+  PEER=new Peer();
+  PEER.on('error',netErr);
+  PEER.on('open',()=>{
+    const c=PEER.connect('duelsimple-'+code,{reliable:true});
+    c.on('open',()=>{NET=c;ME=1;c.send(JSON.stringify({t:'deck',deck:DK[0]}));$('#mi').textContent='Conectado. Esperando que empiece el duelo…'});
+    c.on('data',netGot);c.on('close',netLost)})}
+$('#bHost').onclick=netHost;$('#bJoin').onclick=()=>netJoin();
 
 // ===== Inicio =====
 $('#bPlay').onclick=startDuel;
 $('#bCont').onclick=()=>{G=SAVED;SAVED=null;G.curtain=true;uid=1e6;shown=[P(0).lp,P(1).lp];$('#menu').hidden=true;render()};
 $('#bD1').onclick=()=>openBuilder(0);$('#bD2').onclick=()=>openBuilder(1);
-$('#bRnd').onclick=()=>{BD=randomDeck();drawB()};$('#bClr').onclick=()=>{BD=[];drawB()};
-$('#bOk').onclick=()=>{if(mainN(BD)<40)return say('El mazo principal necesita al menos 40 cartas.');DK[BI]=[...BD];saveDecks();showMenu()};$('#bNo').onclick=showMenu;
+$('#bRnd').onclick=()=>{BD=randomDeck();BN='Mazo aleatorio';BO=keyOf(BD);drawB()};$('#bClr').onclick=()=>{BD=[];BN='';drawB()};
+$('#bOk').onclick=()=>{if(mainN(BD)<40)return say('El mazo principal necesita al menos 40 cartas.');DK[BI]=[...BD];DN[BI]=curLabel();saveDecks();showMenu()};$('#bNo').onclick=showMenu;
+$('#bLoad').onclick=()=>openLib('pick');
+$('#bSave').onclick=()=>{if(mainN(BD)<40)return say('El mazo principal necesita al menos 40 cartas.');
+  const nm=(prompt('Nombre para tu mazo:',baseN(curLabel())||'Mi mazo')||'').trim().slice(0,40);if(!nm)return;
+  const it={n:nm,s:'',g:'Mío',ids:[...BD].sort((a,b)=>a-b)},j=CD.findIndex(x=>x.n==nm);
+  if(j>=0)CD[j]=it;else CD.push(it);saveCD();BN=nm;BO=keyOf(BD);drawB();say(`Guardado en la biblioteca: ${nm}`)};
 $('#q').oninput=$('#flt').onchange=drawB;
 $('#nextBtn').onclick=nextPhase;$('#endBtn').onclick=endTurn;
 $('#logBtn').onclick=()=>$('#logPanel').toggleAttribute('hidden');
-const mb=$('#muteBtn');let lpd=false,lpt=0;
-mb.onpointerdown=()=>{lpd=false;clearTimeout(lpt);lpt=setTimeout(()=>{if(ADM.on&&G&&inGame()){lpd=true;openAdm()}},800)};
-['pointerup','pointerleave','pointercancel'].forEach(t=>mb.addEventListener(t,()=>clearTimeout(lpt)));
-mb.onclick=()=>{if(lpd){lpd=false;return}volPress(true)};
-document.addEventListener('keydown',e=>{if(e.key=='AudioVolumeDown'||e.key=='VolumeDown')volPress(false)});
-$('#restartBtn').onclick=()=>{if(G&&!G.over)try{SAVED=JSON.parse(JSON.stringify(G))}catch(e){}showMenu()};
+$('#muteBtn').onclick=e=>{mute=!mute;e.target.textContent=mute?'🔇':'🔊'};
+$('#restartBtn').onclick=()=>{if(online()){if(confirm('¿Salir de la partida online?'))location.reload();return}if(G&&!G.over)try{SAVED=JSON.parse(JSON.stringify(G))}catch(e){}showMenu()};
 document.addEventListener('contextmenu',e=>e.preventDefault());
 buildBoard();loadDecks();
 (function init(){let s;try{s=JSON.parse(localStorage.getItem(KEY))}catch(e){}
-  SAVED=s&&s.p&&!s.over&&s.p[0].st&&Array.isArray(s.Q)?s:null;showMenu()})();
+  SAVED=s&&s.p&&!s.over&&s.p[0].st&&Array.isArray(s.Q)?s:null;showMenu();
+  const sala=new URLSearchParams(location.search).get('sala');if(sala)netJoin(sala)})();
 window.addEventListener('resize',()=>G&&hand());
