@@ -23,33 +23,28 @@
 <div id="stage" hidden><div id="chips"></div><button id="nextBtn"></button><button id="endBtn">Fin de turno</button></div>
 <div id="menu" class="scr">
   <h1 class="nt">DUEL SIMPLE</h1>
-  <div class="mb"><button class="nb" id="bPlay">⚔ Duelo local</button><button class="nb" id="bCont" hidden>▶ Continuar partida</button><button class="nb" id="bLib">📚 Biblioteca de mazos</button><button class="nb" id="bD1">🂠 Mazo del Jugador 1</button><button class="nb" id="bD2">🂠 Mazo del Jugador 2</button><button class="nb" id="bHost">🌐 Crear sala online</button><button class="nb" id="bJoin">🔗 Unirme a sala</button></div>
+  <div class="mb"><button class="nb" id="bPlay">⚔ Duelo local</button><button class="nb" id="bCont" hidden>▶ Continuar partida</button><button class="nb" id="bD1">🂠 Mazo del Jugador 1</button><button class="nb" id="bD2">🂠 Mazo del Jugador 2</button></div>
   <p id="mi"></p>
 </div>
 <div id="builder" class="scr" hidden>
   <div class="bh"><b id="bT"></b><span id="bC"></span><span class="sp"></span><button class="nb" id="bRnd">Aleatorio</button><button class="nb" id="bClr">Vaciar</button><button class="nb" id="bNo">Cancelar</button><button class="nb ok" id="bOk">Guardar</button></div>
-  <div class="bh" id="bh2"><span id="bN" class="bnm"></span><button class="nb" id="bLoad">📚 Cargar mazo</button><button class="nb" id="bSave">💾 Guardar como…</button></div>
   <div id="dk" class="cg"></div>
   <div class="bs"><input id="q" type="search" placeholder="Buscar carta…" autocomplete="off"><select id="flt"><option value="">Todas</option><option value="m">Monstruos</option><option value="s">Magias</option><option value="p">Trampas</option><option value="f">Fusión</option></select></div>
   <div id="col" class="cg"></div>
-</div>
-<div id="lib" class="scr" hidden>
-  <div class="bh"><button class="nb" id="lBack">← Volver</button><b>Biblioteca de mazos</b><span class="sp"></span><span id="lC"></span></div>
-  <div class="bs"><input id="lq" type="search" placeholder="Buscar mazo, personaje o carta…" autocomplete="off"><select id="lf"><option value="">Todos</option><option value="Personaje">Personajes</option><option value="Estrategia">Estrategias</option><option value="Mío">Mis mazos</option></select></div>
-  <div id="ll"></div>
-</div>
-<div id="libD" class="scr" hidden>
-  <div class="bh"><button class="nb" id="ldBack">← Volver</button><b id="ldT"></b></div>
-  <div id="ldI"></div>
-  <div id="ldk" class="cg"></div>
-  <div id="ldB" class="lbt"></div>
 </div>
 <aside id="logPanel" hidden><ol></ol></aside>
 <div id="gyv" hidden></div>
 <div id="zoom" hidden></div>
 <div id="curtain" hidden></div>
+<div id="adm" hidden>
+  <div class="ah"><b>🛠 Modo administrador</b><span class="sp"></span><button class="nb" id="aOff">Desactivar</button><button class="nb" id="aX">✕</button></div>
+  <div id="asw"></div>
+  <div class="bs"><input id="aq" type="search" placeholder="Buscar carta…" autocomplete="off"><select id="asrc"><option value="deck">Mi mazo</option><option value="all">Todas las cartas</option></select></div>
+  <div id="agrid" class="cg"></div>
+  <div id="aact" class="aact" hidden></div>
+</div>
+<div id="pad" hidden><div class="padbox"><h3>Acceso restringido</h3><div id="pd"></div><div class="pk"></div><button class="nb" id="padX">Cancelar</button></div></div>
 <div id="rot"><p>📱↻<br>Girá el celular en vertical</p></div>
-<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
 <script src="script.js"></script>
 </body>
 </html>
