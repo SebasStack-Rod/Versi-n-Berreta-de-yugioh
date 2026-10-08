@@ -149,6 +149,28 @@ body{background:linear-gradient(rgba(4,7,20,.28),rgba(4,7,20,.55)),url(assets/bg
 .tile.dead img{filter:saturate(.5)}
 .gc{position:relative}
 
+/* ===== Modo administrador ===== */
+#adm,#pad{position:fixed;inset:0;z-index:56;display:flex;flex-direction:column;gap:8px;padding:10px 12px;background:linear-gradient(rgba(4,7,20,.9),rgba(4,7,20,.96)),url(assets/bg.jpg) center/cover;overflow:auto}
+#pad{z-index:57;align-items:center;justify-content:center;touch-action:manipulation}
+.ah{display:flex;align-items:center;gap:8px;flex:none}.ah b{font-size:15px;text-shadow:0 0 8px #ff9bb4;color:#ffb3c6}
+.ah .nb{min-width:0;padding:7px 12px;font-size:12px}
+#asw{display:flex;flex-direction:column;gap:6px;flex:none}
+.sw{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px 12px;border:1px solid var(--edge);border-radius:12px;background:rgba(255,255,255,.06);font-size:13px;cursor:pointer}
+.sw i{flex:none;width:44px;height:24px;border-radius:12px;background:#2a3450;position:relative;transition:.2s}
+.sw i::after{content:'';position:absolute;left:3px;top:3px;width:18px;height:18px;border-radius:50%;background:#fff;transition:.2s}
+.sw.on{border-color:#3fd6a0}.sw.on i{background:#3fd6a0;box-shadow:0 0 10px #3fd6a0}.sw.on i::after{left:23px}
+.seg{display:flex;gap:4px}.seg button{padding:6px 10px;font-size:12px}.seg .on{background:var(--gold);color:#221a00}
+#agrid{min-height:120px}
+.aact{flex:none;display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:8px;border:1px solid var(--neon);border-radius:12px;background:rgba(10,20,50,.85);position:sticky;bottom:0}
+.aact b{flex:1 1 100%;font-size:13px;color:var(--gold)}.aact .nb{min-width:0;flex:1;padding:8px 6px;font-size:12px}
+.padbox{display:flex;flex-direction:column;align-items:center;gap:14px;padding:22px;border:1px solid var(--neon);border-radius:18px;background:rgba(10,20,50,.7);box-shadow:0 0 22px rgba(95,212,255,.35)}
+.padbox h3{margin:0;color:var(--neon);text-shadow:0 0 8px var(--neon)}
+#pd{font-size:28px;letter-spacing:10px;min-height:38px}
+.pk{display:grid;grid-template-columns:repeat(3,70px);gap:10px}.pk button{height:58px;font-size:22px;border-radius:14px}
+.blk{position:fixed;left:50%;top:14%;transform:translateX(-50%);z-index:59;width:min(90vw,380px);display:flex;gap:10px;padding:10px;border-radius:14px;background:rgba(10,16,40,.94);border:1px solid #ff6a8a;box-shadow:0 0 22px rgba(255,90,130,.6);pointer-events:none;animation:tt 3s forwards}
+.blk img{width:68px;border-radius:5px;flex:none}.blk div{display:flex;flex-direction:column;gap:3px;min-width:0}
+.blk b{color:#ff9bb4}.blk small{color:#a9bbdc;font-size:10px;max-height:62px;overflow:hidden}
+
 /* ===== Biblioteca de mazos ===== */
 #lib,#libD{background-color:#070b1a}
 input,select{-webkit-user-select:text;user-select:text}

@@ -293,6 +293,18 @@ const FM={73:['Hierba de Fuego','Pequeño Dragón'],119:['Manipulador de la Llam
 const $=(s,r=document)=>r.querySelector(s);
 const el=(t,c,h)=>{const e=document.createElement(t);if(c)e.className=c;if(h!=null)e.innerHTML=h;return e};
 let G,uid=0,shown=[LP0,LP0],mute=false,AC,DK=[[],[]],SAVED=null;const Z={};
+// Modo administrador (solo en memoria)
+const ADM={on:false,pl:0,free:true,fuse:true,bT:false,bS:false,bE:false,src:'deck'};
+const admFree=pi=>ADM.on&&ADM.free&&pi==ADM.pl,admFus=pi=>ADM.on&&ADM.fuse&&pi==ADM.pl;
+const blockKind=(pi,k)=>!!(ADM.on&&G&&pi!=ADM.pl&&(k=='p'?ADM.bT:k=='s'?ADM.bS:ADM.bE));
+function blocked(pi,kind,what){if(!blockKind(pi,kind))return false;showBlock(kind,what);return true}
+function findBlocker(kind){const prefs=kind=='p'?['Jinzo','Jinzo - Señor']:kind=='s'?['Paladín Oscuro','Gran Escudo Gardna']:[];
+  const p=P(ADM.pl),own=[...p.deck,...p.ext,...p.hand,...p.grave,...p.ban,...p.field.filter(Boolean),...p.st.filter(Boolean)];
+  for(const n of prefs){const h=own.find(c=>cd(c).n==n);if(h)return{id:h.id,where:'tu mazo'}}
+  for(const n of prefs){const c=C.find(x=>x.n==n);if(c)return{id:c.id,where:'el juego'}}return null}
+function showBlock(kind,what){const b=findBlocker(kind),c=b&&C[b.id-1];
+  const t=c?`${c.n} (de ${b.where}) niega ${what}.`:`Se bloquea ${what}.`;msg(`🛡 ${t}`);snd(150,.3,'sawtooth');
+  const d=el('div','blk',`${c?`<img src="${img(c.id)}">`:''}<div><b>¡Bloqueado!</b><span>${t}</span>${c?`<small>${c.x}</small>`:''}</div>`);document.body.append(d);setTimeout(()=>d.remove(),3000)}
 const P=i=>G.p[i],me=()=>P(G.turn),op=()=>P(1-G.turn),O=i=>1-i;
 // ===== ONLINE: helpers =====
 let NET=null,ME=0,PEER=null;
@@ -369,7 +381,7 @@ function kill(pi,i,o={}){const p=P(pi),m=p.field[i];if(!m)return;p.field[i]=null
   if(m.tk){msg(`${c.n} (ficha) desaparece.`);return}
   if(o.how=='ban'||(KK(m)=='caos'&&!m.fd)||(by&&KK(by)=='caos'&&o.bat)){p.ban.push(stripc(m));msg(`${c.n} es desterrado.`)}
   else{toGrave(pi,m);
-    if(o.bat&&by&&KK(by)=='volst'){msg('Des Volstgalph inflige 500 de daño.');lp(pi,-500)}
+    if(o.bat&&by&&KK(by)=='volst'&&!blocked(O(pi),'m','Des Volstgalph'){msg('Des Volstgalph inflige 500 de daño.');lp(pi,-500)}
     gyTrig(pi,m)}
   if(o.des)offer(pi,'dest',{pi})}
 function destroyM(pi,i,src,by){const m=P(pi).field[i];if(!m)return false;
@@ -378,7 +390,7 @@ function destroyM(pi,i,src,by){const m=P(pi).field[i];if(!m)return false;
   if(src=='bat'&&G.wab&&G.wab.n==G.n&&G.wab.pi==pi)return false;
   kill(pi,i,{des:1,bat:src=='bat',by});return true}
 function bounce(pi,i){const p=P(pi),m=p.field[i];if(!m)return;p.field[i]=null;leave(pi,m);if(!m.tk)p.hand.push(stripc(m));msg(`${nm(m)} vuelve a la mano.`)}
-function gyTrig(pi,m){const k=KK(m),p=P(pi);
+function gyTrig(pi,m){const k=KK(m),p=P(pi);if(['sangan','hopper','genesis'].includes(k)&&blocked(pi,'m',cd(m).n))return;
   if(k=='sangan')pickFrom(pi,pi,'deck','Sangan: añadí 1 monstruo con 1500 ATK o menos',c=>cd(c).ty=='m'&&cd(c).a<=1500&&!cd(c).fus,'toHand');
   if(k=='hopper')pickFrom(pi,pi,'hand','Pinch Hopper: invocá 1 Insecto de tu mano',c=>cd(c).ty=='m'&&cd(c).ra=='Insecto','spHand',null,true);
   if(k=='genesis'){const ds=p.grave.filter(c=>cd(c).ra=='Dragón'&&cd(c).ty=='m');if(ds.length){ds.forEach(c=>{take(pi,'grave',c.u);p.deck.push(c)});shuffle(p.deck);msg('Dragón del Génesis: los Dragones del Cementerio vuelven al Deck.')}}}
@@ -386,7 +398,7 @@ function spSum(pi,c,pos='a',o={}){const p=P(pi),i=p.field.indexOf(null);if(i<0)r
   const m={id:c.id,u:c.u||++uid,pos,fd:false,atkd:false,moved:false,t:G.n,bonus:0,tmp:0,ps:0,...o};if(c.ov)m.ov=c.ov;
   p.field[i]=m;G.fresh=m.u;msg(`Invocación Especial: ${nm(m)}.`);snd(440);onSum(pi,m,'s');return m}
 function token(pi,id,ov,pos='d'){const c=C[id-1];return spSum(pi,{id,u:++uid,ov:{...c,...ov,k:undefined,x:'Ficha'}},pos,{tk:1,nt:1})}
-function onSum(pi,m,how){const k=KK(m);
+function onSum(pi,m,how){const k0=KK(m),k=['caos','slifer','sage'].includes(k0)&&blocked(pi,'m',nm(m))?'':k0;
   if(k=='caos')pickFrom(pi,pi,'grave','Mago Oscuro del Caos: añadí 1 Carta Mágica del Cementerio',c=>cd(c).ty=='s','toHand',null,true);
   if(k=='slifer'&&(how=='n'||how=='t'))UPM(O(pi)).forEach(([x,i])=>{if(x.pos=='a'){x.bonus=(x.bonus||0)-2000;if(atk(O(pi),x)<=0)kill(O(pi),i,{des:1})}});
   if(k=='sage')pickFrom(pi,pi,'deck','Sabio Oscuro: añadí 1 Carta Mágica de tu Deck',c=>cd(c).ty=='s','toHandSh');
@@ -423,6 +435,7 @@ function actCard(z,i){const pi=G.turn,p=me(),c=z=='h'?p.hand[i]:p.st[i],d=cd(c),
   if(z=='h'&&d.ra!='Campo'&&(d.ra=='Continua'||d.ra=='Equipo')&&p.st.indexOf(null)<0)return say('Tu zona de Mágicas/Trampas está llena.');
   startCard(pi,z,i,d.k)}
 function startCard(pi,z,i,k,ev){const f=FX[k];
+  {const zn=z=='h'?'hand':'st',c0=P(pi)[zn][i];if(c0&&blocked(pi,cd(c0).ty,cd(c0).n)){if(z=='h')P(pi).hand.splice(i,1);else P(pi).st[i]=null;toGrave(pi,c0);G.sel=null;return}}
   if(f.tg){G.sel=null;return tgReq(pi,`${cd(P(pi)[z=='h'?'hand':'st'][i]).n}: ${f.tgt||'elegí un objetivo'}`,f.tg.s,f.tg.p,f.tg.f,'card',{pi,z,i,k,ev})}
   resolveCard(pi,z,i,k,null)}
 function resolveCard(pi,z,i,k,t){const p=P(pi),c=z=='h'?p.hand[i]:p.st[i];if(!c)return;const d=cd(c),f=FX[k];
@@ -451,7 +464,7 @@ function summon(h,pos,slot){
   if(c.dead||SPK.has(c.k)||c.fus)return say(c.fus?'Los monstruos de Fusión entran con Polimerización.':`${c.n} solo se Invoca de Modo Especial.`);
   if(G.summoned)return say('Ya hiciste tu Invocación Normal o Colocación este turno.');
   if(!canSum())return say('No podés Invocar otros monstruos este turno (Cortina de Magia Oscura).');
-  const nd=needT(c),tr=MONS(G.turn).filter(([m])=>!m.nt).length,fr=MONS(G.turn).length;
+  const nd=admFree(G.turn)?0:needT(c),tr=MONS(G.turn).filter(([m])=>!m.nt).length,fr=MONS(G.turn).length;
   if(nd>tr)return say(`Necesitás ${nd} monstruo(s) en tu campo para tributar.`);
   if(!nd&&fr>=SLOTS)return say('Tu campo está lleno.');
   if(nd){G.mode={k:'trib',h,pos,nd,sel:[]};G.sel=null;return ui()}
@@ -465,9 +478,10 @@ function place(h,pos,tr,slot){const p=me(),c=p.hand.splice(h,1)[0];
   if(pos!='s'){titi(pup);onSum(G.turn,m,tr.length?'t':'n')}ui()}
 const SPK=new Set(['valk','jz2','malic','exod','larva','gmoth','pmoth','sisters','toonbe','paladin']);
 const pups=()=>[0,1].map(pi=>UPM(pi).filter(([m])=>m.id==71).length);
-function titi(pp){pp.forEach((n,pi)=>{if(n&&!G.over){msg(`Titiritero Misterioso: +${500*n} LP para el Jugador ${pi+1}.`);lp(pi,500*n)}})}
+function titi(pp){pp.forEach((n,pi)=>{if(n&&!G.over&&!blocked(pi,'m','Titiritero Misterioso')){msg(`Titiritero Misterioso: +${500*n} LP para el Jugador ${pi+1}.`);lp(pi,500*n)}})}
 function special(h){const p=me(),c0=p.hand[h],d=cd(c0),k=d.k,pi=G.turn;
   if(busy()||G.phase=='battle')return;
+  if(admFree(pi)){if(!free(pi))return say('Tu campo está lleno.');const v=p.hand.splice(h,1)[0];spSum(pi,v,'a');G.sel=null;msg('(Admin) Invocación Especial sin condiciones.');return ui()}
   if(G.nosp===G.n||!canSum())return say('No podés Invocar de Modo Especial este turno.');
   const miss=n=>say(`${d.n} necesita "${n}", que no existe en este conjunto de cartas.`);
   if(k=='valk'){const names=['Alpha el Guerrero Magnético','Beta el Guerrero Magnético','Gamma el Guerrero Magnético'];
@@ -484,7 +498,7 @@ function special(h){const p=me(),c0=p.hand[h],d=cd(c0),k=d.k,pi=G.turn;
   else return miss('Petit Moth');
 }
 // Fusión
-function fuseMats(pi,fid){const p=P(pi),want=[...FM[fid]],pool=[...p.hand.map((c,i)=>({s:'h',i,c})),...MONS(pi).map(([m,i])=>({s:'f',i,c:m}))],used=new Set(),res=[];let miss=0;
+function fuseMats(pi,fid){if(admFus(pi))return[];const p=P(pi),want=[...FM[fid]],pool=[...p.hand.map((c,i)=>({s:'h',i,c})),...MONS(pi).map(([m,i])=>({s:'f',i,c:m}))],used=new Set(),res=[];let miss=0;
   for(const n of want){const j=pool.findIndex((x,k)=>!used.has(k)&&isMon(x.c)&&!cd(x.c).fus&&cd(x.c).n==n);if(j>=0){used.add(j);res.push(pool[j])}else miss++}
   if(miss==1){const j=pool.findIndex((x,k)=>!used.has(k)&&cd(x.c).n=='Diosa del Tercer Ojo');if(j>=0){used.add(j);res.push(pool[j]);miss=0}}
   return miss?null:res}
@@ -588,7 +602,7 @@ const anyST=pi=>P(pi).st.some(Boolean)||!!P(pi).fz;
 function pickList(pi,t,list,act,data,opt,noTake,zone,side){if(!list.length)return false;G.Q.unshift({k:'pick',pi,side:side??pi,zone,t,list,act,data,opt,noTake});return true}
 function destroyAllST(pi){P(pi).st.forEach((c,x)=>c&&destroyST(pi,'s',x));if(P(pi).fz)destroyST(pi,'z')}
 function equipTo(c,m){c.tg=m.u;if(KK(m)=='gear'){const j=P(G.turn).st.indexOf(c);const o=[0,1].find(q=>P(q).st.includes(c));if(o!=null)destroyST(o,'s',P(o).st.indexOf(c));msg('Gearfried destruye la Carta de Equipo.')}}
-function flipFx(pi,m,fs){const k=KK(m);
+function flipFx(pi,m,fs){const k=KK(m);if(['mask','sig','ojo','castle','reaper','eater','piper'].includes(k)&&blocked(pi,'m',nm(m)))return;
   if(k=='mask')pickFrom(pi,pi,'grave','Máscara de la Oscuridad: añadí 1 Trampa del Cementerio',c=>cd(c).ty=='p','toHand',null,true);
   if(k=='sig'&&fs){msg('Pájaro Sigiloso: 1000 de daño al rival.');lp(O(pi),-1000)}
   if(k=='ojo'){const n=Math.min(5,P(pi).deck.length);if(n>1){G.mode={k:'peek',pi,cards:P(pi).deck.slice(-n).reverse(),ord:[]};G.sel=null}}
@@ -734,14 +748,14 @@ function changePos(i){const pi=G.turn,m=me().field[i];
   if(!m.fd&&cls(m)=='Insecto'&&UPM(O(pi)).some(([x])=>KK(x)=='ibprin'))return say('Princesa Insecto mantiene a los Insectos en Ataque.');
   if(m.fd){const pup=pups();m.fd=false;m.pos='a';msg(`Invocación de Volteo: ${nm(m)}.`);titi(pup);flipFx(pi,m,true);if(atk(pi,m)>=1500)offer(O(pi),'sum',{u:m.u,pi})}
   else{m.pos=m.pos=='a'?'d':'a';msg(`${nm(m)} pasa a ${m.pos=='a'?'ataque':'defensa'}.`);
-    if(m.pos=='d'&&MONS(O(pi)).length){if(KK(m)=='payaso')tgReq(pi,'Payaso del Sueño: destruí 1 monstruo rival','opp','mon','any','clown',null,1);
-      if(KK(m)=='clown2')tgReq(pi,'Payaso Craso: devolvé 1 monstruo rival a la mano','opp','mon','any','clown2',null,1)}
+    if(m.pos=='d'&&MONS(O(pi)).length){if(KK(m)=='payaso'&&!blocked(pi,'m',nm(m)))tgReq(pi,'Payaso del Sueño: destruí 1 monstruo rival','opp','mon','any','clown',null,1);
+      if(KK(m)=='clown2'&&!blocked(pi,'m',nm(m)))tgReq(pi,'Payaso Craso: devolvé 1 monstruo rival a la mano','opp','mon','any','clown2',null,1)}
     if(KK(m)=='sab'&&m.pos=='d'){shuffle(me().deck);msg('Sabiduría Manchada: barajás tu Deck.')}}
   m.moved=true;snd(330);ui()}
 function setFD(i){const m=me().field[i];if(m.fdt||m.atkd||G.phase=='battle')return say('Ya lo usaste este turno.');
   m.fd=true;m.pos='d';m.fdt=true;msg(`${nm(m)} se pone boca abajo.`);snd(300);ui()}
 function gemSummon(i){const m=me().field[i];if(G.summoned||!canSum())return say('Ya hiciste tu Invocación Normal este turno.');m.gem=1;G.summoned=true;msg(`${nm(m)}: Invocación Gemini, ahora tiene efecto.`);ui()}
-function useAct(i){const pi=G.turn,m=me().field[i],a=ACT[KK(m)];const w=a.can&&a.can(pi,m);if(w)return say(w);G.sel=null;a.run(pi,m);ui()}
+function useAct(i){const pi=G.turn,m=me().field[i],a=ACT[KK(m)];if(blocked(pi,'m',nm(m))){m.ef=G.n;G.sel=null;return ui()}const w=a.can&&a.can(pi,m);if(w)return say(w);G.sel=null;a.run(pi,m);ui()}
 function ravineAct(){const pi=G.turn;if(G.fl.ravine===G.n)return say('Ya lo usaste este turno.');if(!me().hand.length||!me().deck.some(isDC))return say('Necesitás una carta en la mano y un Dragón en el Deck.');
   G.fl.ravine=G.n;G.sel=null;pickFrom(pi,pi,'hand','Barranco del Dragón: descartá 1 carta',()=>true,'rav1');ui()}
 function gateAct(){const pi=G.turn,l=fusable(pi);if(!l.length)return say('No tenés materiales para ninguna Fusión.');if(noSp())return say(noSp());G.sel=null;pickList(pi,'Puerta de Fusión: elegí el Monstruo de Fusión',l,'gatef',null,false,true,'ext');ui()}
@@ -767,7 +781,7 @@ function view(h,list,pi){const v=$('#gyv');v.innerHTML=`<h3>${h}</h3><div class=
   list.forEach(c=>{const w=el('div','gc',`<img src="${img(c.id)}">`);press(w,()=>({c,pi,f:false}),()=>{});$('.g',v).append(w)});
   $('button',v).onclick=()=>v.hidden=true;v.hidden=false}
 function openGy(sd){const pi=pIdx(sd),p=P(pi);view(`Cementerio del Jugador ${pi+1} (${p.grave.length}) · Desterradas (${p.ban.length})`,[...p.grave,...p.ban],pi)}
-function openExt(sd){const pi=pIdx(sd);if(pi!=VIEW()||G.curtain)return say(`Deck Extra del rival: ${P(pi).ext.length} cartas.`);view(`Tu Deck Extra (${P(pi).ext.length})`,P(pi).ext,pi)}
+function openExt(sd){const pi=pIdx(sd);if(pi!=VIEW()||G.curtain)return say(`Deck Extra del rival: ${P(pi).ext.length} cartas.`);const adm=admFus(pi)&&G.phase!='battle'&&!busy();view(`Tu Deck Extra (${P(pi).ext.length})${adm?' · tocá para invocar (admin)':''}`,P(pi).ext,pi,adm?c=>{$('#gyv').hidden=true;if(!free(pi))return say('Tu campo está lleno.');const f=take(pi,'ext',c.u);if(f){spSum(pi,f,'a',{mats:[]});msg('(Admin) Fusión libre.');ui()}}:null)}
 function zoneClick(sd,i){
   if(busy())return;
   const pi=pIdx(sd),m=P(pi).field[i],md=G.mode,k=md&&md.k;
@@ -1039,6 +1053,49 @@ function netJoin(code){
     c.on('open',()=>{NET=c;ME=1;c.send(JSON.stringify({t:'deck',deck:DK[0]}));$('#mi').textContent='Conectado. Esperando que empiece el duelo…'});
     c.on('data',netGot);c.on('close',netLost)})}
 $('#bHost').onclick=netHost;$('#bJoin').onclick=()=>netJoin();
+
+// ===== Modo administrador oculto =====
+// Acceso: 3 toques seguidos al botón de sonido durante la partida -> teclado numérico -> contraseña.
+const PWH=2088294963,hsh=s=>{let h=5381;for(const c of s)h=((h<<5)+h+c.charCodeAt(0))>>>0;return h};
+const inGame=()=>!!G&&$('#menu').hidden&&$('#builder').hidden;
+let mt=[],mutePrev=false,pin='';
+function volPress(btn){const now=Date.now();mt=mt.filter(t=>now-t<1800);if(!mt.length)mutePrev=mute;mt.push(now);
+  if(btn){mute=!mute;$('#muteBtn').textContent=mute?'🔇':'🔊'}
+  if(mt.length>=3){mt=[];if(btn){mute=mutePrev;$('#muteBtn').textContent=mute?'🔇':'🔊'}adminGesture()}}
+function adminGesture(){if(!inGame())return;
+  if(ADM.on){ADM.on=false;closeAdm();$('#pad').hidden=true;say('Modo administrador desactivado')}else openPad()}
+function drawPad(){$('#pd').textContent='●'.repeat(pin.length)+'○'.repeat(Math.max(0,4-pin.length))}
+function openPad(){pin='';drawPad();$('#pad').hidden=false}
+function padKey(k){if(k=='<')pin=pin.slice(0,-1);else if(k=='ok'){}else if(pin.length<4)pin+=k;drawPad();
+  if(pin.length==4||k=='ok'){if(pin.length==4&&hsh(pin)==PWH){$('#pad').hidden=true;ADM.on=true;say('Modo administrador activado');openAdm()}
+    else if(pin.length==4){const b=$('.padbox');b.classList.remove('shake');void b.offsetWidth;b.classList.add('shake');say('Contraseña incorrecta');pin='';setTimeout(drawPad,250)}}}
+(function(){const k=$('.pk');['1','2','3','4','5','6','7','8','9','<','0','ok'].forEach(x=>{const b=el('button','',x=='<'?'⌫':x=='ok'?'✓':x);b.onclick=()=>padKey(x);k.append(b)});$('#padX').onclick=()=>$('#pad').hidden=true})();
+const SW=[['free','Invocar sin sacrificios (cualquier monstruo)'],['fuse','Fusiones libres: sin Polimerización ni materiales'],['bT','Bloquear Trampas del rival'],['bS','Bloquear Mágicas del rival'],['bE','Bloquear efectos de monstruos del rival']];
+function openAdm(){if(!ADM.on||!G)return;$('#adm').hidden=false;drawAdm()}
+function closeAdm(){$('#adm').hidden=true}
+function drawAdm(){const a=$('#asw');
+  a.innerHTML=`<div class="sw"><span>Jugador administrador</span><span class="seg"><button class="${ADM.pl==0?'on':''}" data-p="0">Jugador 1</button><button class="${ADM.pl==1?'on':''}" data-p="1">Jugador 2</button></span></div>`;
+  a.querySelectorAll('.seg button').forEach(b=>b.onclick=()=>{ADM.pl=+b.dataset.p;drawAdm()});
+  SW.forEach(([k,t])=>{const s=el('div','sw'+(ADM[k]?' on':''),`<span>${t}</span><i></i>`);s.onclick=()=>{ADM[k]=!ADM[k];s.classList.toggle('on',ADM[k])};a.append(s)});
+  $('#asrc').value=ADM.src;admGrid();admSheet(null)}
+function admGrid(){const q=norm($('#aq').value);let ids;
+  if(ADM.src=='deck'&&G){const p=P(ADM.pl),m={};[...p.deck,...p.ext].forEach(c=>m[c.id]=(m[c.id]||0)+1);ids=Object.keys(m).map(Number).sort((a,b)=>a-b).map(id=>[id,m[id]])}
+  else ids=C.map(c=>[c.id,0]);
+  $('#agrid').replaceChildren(...ids.filter(([id])=>!q||norm(C[id-1].n).includes(q)).map(([id,n])=>{const t=tile(id,()=>admSheet(id),null,0,'');if(n)t.append(el('span','cnt','×'+n));return t}))}
+function admSheet(id){const s=$('#aact');if(id==null){s.hidden=true;return}const c=C[id-1];s.hidden=false;s.innerHTML=`<b>${c.n}</b>`;
+  const b=(t,f)=>{const x=el('button','nb',t);x.onclick=f;s.append(x)};
+  if(!c.fus)b('A la mano',()=>admAdd(id,'h'));
+  if(c.ty=='m'){b(c.fus?'Fusión · Ataque':'Invocar · Ataque',()=>admAdd(id,'a'));b(c.fus?'Fusión · Defensa':'Invocar · Defensa',()=>admAdd(id,'d'))}
+  b('✕',()=>admSheet(null))}
+function admAdd(id,how){if(!G||G.over)return say('No hay partida en curso.');const pl=ADM.pl,p=P(pl),c0=C[id-1];
+  if(how!='h'&&!free(pl))return say('El campo del jugador administrador está lleno.');
+  let c;if(ADM.src=='deck'){const z=c0.fus?'ext':'deck',f=p[z].find(x=>x.id==id);if(!f)return say('Esa carta ya no está en tu mazo.');c=take(pl,z,f.u)}else c={id,u:++uid};
+  if(how=='h'){p.hand.push(c);chkEx(pl);msg(`(Admin) ${c0.n} a la mano.`)}
+  else{const m=spSum(pl,c,how,c0.fus?{mats:[]}:{});if(!m){p.hand.push(c);return say('No se pudo invocar.')}msg(`(Admin) ${c0.n} invocado${c0.fus?' por Fusión libre':' sin sacrificios'}.`)}
+  ui();admGrid()}
+$('#aOff').onclick=()=>{ADM.on=false;closeAdm();say('Modo administrador desactivado')};$('#aX').onclick=closeAdm;
+$('#aq').oninput=admGrid;$('#asrc').onchange=e=>{ADM.src=e.target.value;admGrid();admSheet(null)};
+
 
 // ===== Inicio =====
 $('#bPlay').onclick=startDuel;
