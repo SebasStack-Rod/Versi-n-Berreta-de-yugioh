@@ -1,4 +1,8 @@
 'use strict';
+/* Compatibilidad con navegadores/WebViews viejos */
+if(!Element.prototype.replaceChildren)Element.prototype.replaceChildren=function(){while(this.firstChild)this.removeChild(this.firstChild);for(var i=0;i<arguments.length;i++)this.appendChild(arguments[i])};
+if(!Element.prototype.toggleAttribute)Element.prototype.toggleAttribute=function(n,f){var h=this.hasAttribute(n),w=f===undefined?!h:!!f;if(w)this.setAttribute(n,'');else this.removeAttribute(n);return w};
+window.addEventListener('error',function(e){var m=document.getElementById('mi');if(m&&!m.textContent)m.textContent='Error: '+e.message+' (línea '+e.lineno+')'});
 const LP0=8000,HAND0=5,SLOTS=5,HLIM=6,KEY='duel-simple-v5',MAXX=15;
 const D=[
 ['Des Volstgalph','Tierra','Dragón',5,2200,1700,'volst','Cuando esta carta destruye un monstruo en batalla y lo manda al Cementerio, inflige 500 puntos de daño a tu adversario. Gana 200 ATK cada vez que se activa una Carta Mágica Normal o de Juego Rápido, hasta el final del turno (incluso en el turno del rival).'],
@@ -585,7 +589,7 @@ const TF={any:()=>true,up:m=>!m.fd,fus:m=>!m.fd&&cd(m).fus,ins:m=>!m.fd&&cls(m)=
   dr:m=>!m.fd&&cls(m)=='Dragón',dr5:m=>!m.fd&&cls(m)=='Dragón'&&cd(m).lv>=5,atkup:m=>!m.fd&&m.pos=='a',exor:c=>c.fd||cd(c).ty=='s',rp:c=>c.fd||cd(c).ty=='p',stup:c=>!c.fd};
 const tgt=t=>t.z=='m'?P(t.pi).field[t.i]:t.z=='s'?P(t.pi).st[t.i]:P(t.pi).fz;
 const anyST=pi=>P(pi).st.some(Boolean)||!!P(pi).fz;
-function pickList(pi,t,list,act,data,opt,noTake,zone,side){if(!list.length)return false;G.Q.unshift({k:'pick',pi,side:side??pi,zone,t,list,act,data,opt,noTake});return true}
+function pickList(pi,t,list,act,data,opt,noTake,zone,side){if(!list.length)return false;G.Q.unshift({k:'pick',pi,side:side!=null?side:pi,zone,t,list,act,data,opt,noTake});return true}
 function destroyAllST(pi){P(pi).st.forEach((c,x)=>c&&destroyST(pi,'s',x));if(P(pi).fz)destroyST(pi,'z')}
 function equipTo(c,m){c.tg=m.u;if(KK(m)=='gear'){const j=P(G.turn).st.indexOf(c);const o=[0,1].find(q=>P(q).st.includes(c));if(o!=null)destroyST(o,'s',P(o).st.indexOf(c));msg('Gearfried destruye la Carta de Equipo.')}}
 function flipFx(pi,m,fs){const k=KK(m);
