@@ -194,3 +194,17 @@ input,select{-webkit-user-select:text;user-select:text}
 #ldk{flex:1}
 .sc{grid-column:1/-1;margin:6px 0 0;font-size:12px;color:var(--neon);text-shadow:0 0 6px rgba(95,212,255,.6)}
 .lbt{flex:none;display:flex;flex-wrap:wrap;gap:8px}.lbt .nb{flex:1 1 40%;min-width:0;padding:9px 10px;font-size:13px}
+
+/* Chat de partida */
+#chatBtn{position:relative}
+#chatDot{position:absolute;top:2px;right:2px;width:9px;height:9px;border-radius:50%;background:#ff4d5e;border:1px solid #fff}
+#chatPanel{position:fixed;right:8px;top:46px;z-index:56;width:min(330px,86vw);display:flex;flex-direction:column;background:rgba(14,20,40,.92);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);border:1px solid var(--edge);border-radius:12px;font-size:13px;overflow:hidden}
+#chatMsgs{height:min(38vh,260px);overflow-y:auto;touch-action:pan-y;padding:8px;display:flex;flex-direction:column;gap:5px}
+#chatMsgs p{margin:0;max-width:85%;padding:5px 9px;border-radius:10px;word-break:break-word;-webkit-user-select:text;user-select:text}
+#chatMsgs .me{align-self:flex-end;background:rgba(95,212,255,.25)}
+#chatMsgs .rv{align-self:flex-start;background:rgba(255,255,255,.14)}
+#chatMsgs .sys{align-self:center;background:none;color:#9fb0cf;font-size:11px}
+#chatPanel .cin{display:flex;gap:4px;padding:6px;border-top:1px solid var(--edge)}
+#chatIn{flex:1;min-width:0;font-size:16px;padding:7px 9px;border-radius:8px;border:1px solid var(--edge);background:rgba(2,5,15,.6);color:#fff}
+#chatSend{flex:none;padding:6px 10px}
+.toast.chat{top:auto;bottom:22%;border-color:var(--neon)}

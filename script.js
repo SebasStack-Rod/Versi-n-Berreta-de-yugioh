@@ -931,12 +931,13 @@ function drawB(){
 
 // ===== ONLINE: red (PeerJS) =====
 function netSend(){try{if(NET&&NET.open)NET.send(JSON.stringify({t:'s',G,uid}))}catch(e){}}
-function netLost(){say('Se perdió la conexión con el rival.')}
+function netLost(){say('Se perdió la conexión con el rival.');chatLine('Se perdió la conexión.','sys')}
 function netGot(d){
   try{d=typeof d=='string'?JSON.parse(d):d}catch(e){return}
   if(d.t==='deck'){                                   // solo lo recibe el anfitrión
     if(!Array.isArray(d.deck)||!d.deck.every(x=>C[x-1]))return;
     DK[1]=d.deck;$('#menu').hidden=true;newGame()}
+  else if(d.t==='chat'){chatIn(d.m)}
   else if(d.t==='s'){                                 // estado nuevo: solo dibujar, NO ejecutar lógica
     const old=G&&G.log[0];G=d.G;uid=Math.max(uid,d.uid||0);$('#menu').hidden=true;
     if(G.log[0]&&G.log[0]!==old)say(G.log[0]);
@@ -954,7 +955,7 @@ function netHost(){
     $('#mi').onclick=()=>{navigator.clipboard&&navigator.clipboard.writeText(url).then(()=>say('Link copiado'))}});
   PEER.on('connection',c=>{
     if(NET){c.close();return}
-    c.on('open',()=>{NET=c;ME=0;say('¡Rival conectado!')});
+    c.on('open',()=>{NET=c;ME=0;chatOn();say('¡Rival conectado!')});
     c.on('data',netGot);c.on('close',netLost)})}
 function netJoin(code){
   if(typeof Peer=='undefined')return say('No cargó PeerJS (¿sin internet?).');
@@ -964,9 +965,20 @@ function netJoin(code){
   PEER.on('error',netErr);
   PEER.on('open',()=>{
     const c=PEER.connect('duelsimple-'+code,{reliable:true});
-    c.on('open',()=>{NET=c;ME=1;c.send(JSON.stringify({t:'deck',deck:DK[0]}));$('#mi').textContent='Conectado. Esperando que empiece el duelo…'});
+    c.on('open',()=>{NET=c;ME=1;c.send(JSON.stringify({t:'deck',deck:DK[0]}));chatOn();$('#mi').textContent='Conectado. Esperando que empiece el duelo…'});
     c.on('data',netGot);c.on('close',netLost)})}
 $('#bHost').onclick=netHost;$('#bJoin').onclick=()=>netJoin();
+
+// ===== Chat de partida (solo online) =====
+let chatLast=0;
+function chatLine(t,cl){const m=$('#chatMsgs'),p=el('p',cl);p.textContent=t;m.append(p);while(m.children.length>80)m.firstChild.remove();m.scrollTop=m.scrollHeight}
+function chatOn(){$('#chatBtn').hidden=false;chatLine('Chat conectado.','sys')}
+function chatIn(t){t=String(t||'').slice(0,200);if(!t)return;chatLine(t,'rv');
+  if($('#chatPanel').hidden){$('#chatDot').hidden=false;const d=el('div','toast chat');d.textContent='💬 '+t.slice(0,80);document.body.append(d);setTimeout(()=>d.remove(),2400);snd(700,.05)}}
+function chatOut(){const i=$('#chatIn'),t=i.value.trim().slice(0,200),n=Date.now();if(!t||!NET||!NET.open||n-chatLast<400)return;chatLast=n;
+  try{NET.send(JSON.stringify({t:'chat',m:t}));chatLine(t,'me');i.value=''}catch(e){chatLine('No se pudo enviar.','sys')}i.focus()}
+$('#chatBtn').onclick=()=>{const p=$('#chatPanel');p.toggleAttribute('hidden');if(!p.hidden){$('#chatDot').hidden=true;$('#chatMsgs').scrollTop=1e9;$('#chatIn').focus()}};
+$('#chatSend').onclick=chatOut;$('#chatIn').onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();chatOut()}};
 
 // ===== Inicio =====
 $('#bPlay').onclick=startDuel;

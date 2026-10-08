@@ -11,7 +11,7 @@
 <div id="app">
   <div class="top">
     <div class="hud" id="hudT"><b class="nm"></b><div class="lpb"><i></i><span></span></div><div class="oh"></div></div>
-    <div class="tools"><button id="logBtn">📜</button><button id="muteBtn">🔊</button><button id="restartBtn" title="Menú">☰</button></div>
+    <div class="tools"><button id="chatBtn" hidden>💬<i id="chatDot" hidden></i></button><button id="logBtn">📜</button><button id="muteBtn">🔊</button><button id="restartBtn" title="Menú">☰</button></div>
   </div>
   <div class="mid">
     <div id="bw"><main id="board"></main><div id="hint" hidden></div></div>
@@ -33,6 +33,7 @@
   <div id="col" class="cg"></div>
 </div>
 <aside id="logPanel" hidden><ol></ol></aside>
+<aside id="chatPanel" hidden><div id="chatMsgs"></div><div class="cin"><input id="chatIn" type="text" maxlength="200" placeholder="Escribí un mensaje…" autocomplete="off" enterkeyhint="send"><button id="chatSend">Enviar</button></div></aside>
 <div id="gyv" hidden></div>
 <div id="zoom" hidden></div>
 <div id="curtain" hidden></div>
