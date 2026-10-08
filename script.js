@@ -381,7 +381,7 @@ function kill(pi,i,o={}){const p=P(pi),m=p.field[i];if(!m)return;p.field[i]=null
   if(m.tk){msg(`${c.n} (ficha) desaparece.`);return}
   if(o.how=='ban'||(KK(m)=='caos'&&!m.fd)||(by&&KK(by)=='caos'&&o.bat)){p.ban.push(stripc(m));msg(`${c.n} es desterrado.`)}
   else{toGrave(pi,m);
-    if(o.bat&&by&&KK(by)=='volst'&&!blocked(O(pi),'m','Des Volstgalph'){msg('Des Volstgalph inflige 500 de daño.');lp(pi,-500)}
+    if(o.bat&&by&&KK(by)=='volst'&&!blocked(O(pi),'m','Des Volstgalph')){msg('Des Volstgalph inflige 500 de daño.');lp(pi,-500)}
     gyTrig(pi,m)}
   if(o.des)offer(pi,'dest',{pi})}
 function destroyM(pi,i,src,by){const m=P(pi).field[i];if(!m)return false;
@@ -481,7 +481,7 @@ const pups=()=>[0,1].map(pi=>UPM(pi).filter(([m])=>m.id==71).length);
 function titi(pp){pp.forEach((n,pi)=>{if(n&&!G.over&&!blocked(pi,'m','Titiritero Misterioso')){msg(`Titiritero Misterioso: +${500*n} LP para el Jugador ${pi+1}.`);lp(pi,500*n)}})}
 function special(h){const p=me(),c0=p.hand[h],d=cd(c0),k=d.k,pi=G.turn;
   if(busy()||G.phase=='battle')return;
-  if(admFree(pi)){if(!free(pi))return say('Tu campo está lleno.');const v=p.hand.splice(h,1)[0];spSum(pi,v,'a');G.sel=null;msg('(Admin) Invocación Especial sin condiciones.');return ui()}
+  if(admFree(pi)){if(!free(pi))return say('Tu campo está lleno.');const v=p.hand.splice(h,1)[0];spSum(pi,v,'a');G.sel=null;msg('Invocación Especial.');return ui()}
   if(G.nosp===G.n||!canSum())return say('No podés Invocar de Modo Especial este turno.');
   const miss=n=>say(`${d.n} necesita "${n}", que no existe en este conjunto de cartas.`);
   if(k=='valk'){const names=['Alpha el Guerrero Magnético','Beta el Guerrero Magnético','Gamma el Guerrero Magnético'];
@@ -781,7 +781,7 @@ function view(h,list,pi){const v=$('#gyv');v.innerHTML=`<h3>${h}</h3><div class=
   list.forEach(c=>{const w=el('div','gc',`<img src="${img(c.id)}">`);press(w,()=>({c,pi,f:false}),()=>{});$('.g',v).append(w)});
   $('button',v).onclick=()=>v.hidden=true;v.hidden=false}
 function openGy(sd){const pi=pIdx(sd),p=P(pi);view(`Cementerio del Jugador ${pi+1} (${p.grave.length}) · Desterradas (${p.ban.length})`,[...p.grave,...p.ban],pi)}
-function openExt(sd){const pi=pIdx(sd);if(pi!=VIEW()||G.curtain)return say(`Deck Extra del rival: ${P(pi).ext.length} cartas.`);const adm=admFus(pi)&&G.phase!='battle'&&!busy();view(`Tu Deck Extra (${P(pi).ext.length})${adm?' · tocá para invocar (admin)':''}`,P(pi).ext,pi,adm?c=>{$('#gyv').hidden=true;if(!free(pi))return say('Tu campo está lleno.');const f=take(pi,'ext',c.u);if(f){spSum(pi,f,'a',{mats:[]});msg('(Admin) Fusión libre.');ui()}}:null)}
+function openExt(sd){const pi=pIdx(sd);if(pi!=VIEW()||G.curtain)return say(`Deck Extra del rival: ${P(pi).ext.length} cartas.`);const adm=admFus(pi)&&G.phase!='battle'&&!busy();view(`Tu Deck Extra (${P(pi).ext.length})${adm?' · tocá para invocar':''}`,P(pi).ext,pi,adm?c=>{$('#gyv').hidden=true;if(!free(pi))return say('Tu campo está lleno.');const f=take(pi,'ext',c.u);if(f){spSum(pi,f,'a',{mats:[]});msg('Invocación de Fusión.');ui()}}:null)}
 function zoneClick(sd,i){
   if(busy())return;
   const pi=pIdx(sd),m=P(pi).field[i],md=G.mode,k=md&&md.k;
@@ -1057,25 +1057,24 @@ $('#bHost').onclick=netHost;$('#bJoin').onclick=()=>netJoin();
 // ===== Modo administrador oculto =====
 // Acceso: 3 toques seguidos al botón de sonido durante la partida -> teclado numérico -> contraseña.
 const PWH=2088294963,hsh=s=>{let h=5381;for(const c of s)h=((h<<5)+h+c.charCodeAt(0))>>>0;return h};
-const inGame=()=>!!G&&$('#menu').hidden&&$('#builder').hidden;
+const inGame=()=>!!G&&$('#menu').hidden&&$('#builder').hidden&&(!online()||ME==0);
 let mt=[],mutePrev=false,pin='';
 function volPress(btn){const now=Date.now();mt=mt.filter(t=>now-t<1800);if(!mt.length)mutePrev=mute;mt.push(now);
   if(btn){mute=!mute;$('#muteBtn').textContent=mute?'🔇':'🔊'}
   if(mt.length>=3){mt=[];if(btn){mute=mutePrev;$('#muteBtn').textContent=mute?'🔇':'🔊'}adminGesture()}}
 function adminGesture(){if(!inGame())return;
-  if(ADM.on){ADM.on=false;closeAdm();$('#pad').hidden=true;say('Modo administrador desactivado')}else openPad()}
+  if(ADM.on){ADM.on=false;ADM.pl=0;closeAdm();$('#pad').hidden=true}else openPad()}
 function drawPad(){$('#pd').textContent='●'.repeat(pin.length)+'○'.repeat(Math.max(0,4-pin.length))}
 function openPad(){pin='';drawPad();$('#pad').hidden=false}
 function padKey(k){if(k=='<')pin=pin.slice(0,-1);else if(k=='ok'){}else if(pin.length<4)pin+=k;drawPad();
-  if(pin.length==4||k=='ok'){if(pin.length==4&&hsh(pin)==PWH){$('#pad').hidden=true;ADM.on=true;say('Modo administrador activado');openAdm()}
-    else if(pin.length==4){const b=$('.padbox');b.classList.remove('shake');void b.offsetWidth;b.classList.add('shake');say('Contraseña incorrecta');pin='';setTimeout(drawPad,250)}}}
+  if(pin.length==4||k=='ok'){if(pin.length==4&&hsh(pin)==PWH){$('#pad').hidden=true;ADM.on=true;ADM.pl=0;openAdm()}
+    else if(pin.length==4){const b=$('.padbox');b.classList.remove('shake');void b.offsetWidth;b.classList.add('shake');pin='';setTimeout(drawPad,250)}}}
 (function(){const k=$('.pk');['1','2','3','4','5','6','7','8','9','<','0','ok'].forEach(x=>{const b=el('button','',x=='<'?'⌫':x=='ok'?'✓':x);b.onclick=()=>padKey(x);k.append(b)});$('#padX').onclick=()=>$('#pad').hidden=true})();
 const SW=[['free','Invocar sin sacrificios (cualquier monstruo)'],['fuse','Fusiones libres: sin Polimerización ni materiales'],['bT','Bloquear Trampas del rival'],['bS','Bloquear Mágicas del rival'],['bE','Bloquear efectos de monstruos del rival']];
 function openAdm(){if(!ADM.on||!G)return;$('#adm').hidden=false;drawAdm()}
 function closeAdm(){$('#adm').hidden=true}
 function drawAdm(){const a=$('#asw');
-  a.innerHTML=`<div class="sw"><span>Jugador administrador</span><span class="seg"><button class="${ADM.pl==0?'on':''}" data-p="0">Jugador 1</button><button class="${ADM.pl==1?'on':''}" data-p="1">Jugador 2</button></span></div>`;
-  a.querySelectorAll('.seg button').forEach(b=>b.onclick=()=>{ADM.pl=+b.dataset.p;drawAdm()});
+  a.innerHTML='';
   SW.forEach(([k,t])=>{const s=el('div','sw'+(ADM[k]?' on':''),`<span>${t}</span><i></i>`);s.onclick=()=>{ADM[k]=!ADM[k];s.classList.toggle('on',ADM[k])};a.append(s)});
   $('#asrc').value=ADM.src;admGrid();admSheet(null)}
 function admGrid(){const q=norm($('#aq').value);let ids;
@@ -1088,12 +1087,12 @@ function admSheet(id){const s=$('#aact');if(id==null){s.hidden=true;return}const
   if(c.ty=='m'){b(c.fus?'Fusión · Ataque':'Invocar · Ataque',()=>admAdd(id,'a'));b(c.fus?'Fusión · Defensa':'Invocar · Defensa',()=>admAdd(id,'d'))}
   b('✕',()=>admSheet(null))}
 function admAdd(id,how){if(!G||G.over)return say('No hay partida en curso.');const pl=ADM.pl,p=P(pl),c0=C[id-1];
-  if(how!='h'&&!free(pl))return say('El campo del jugador administrador está lleno.');
+  if(how!='h'&&!free(pl))return say('Tu campo está lleno.');
   let c;if(ADM.src=='deck'){const z=c0.fus?'ext':'deck',f=p[z].find(x=>x.id==id);if(!f)return say('Esa carta ya no está en tu mazo.');c=take(pl,z,f.u)}else c={id,u:++uid};
-  if(how=='h'){p.hand.push(c);chkEx(pl);msg(`(Admin) ${c0.n} a la mano.`)}
-  else{const m=spSum(pl,c,how,c0.fus?{mats:[]}:{});if(!m){p.hand.push(c);return say('No se pudo invocar.')}msg(`(Admin) ${c0.n} invocado${c0.fus?' por Fusión libre':' sin sacrificios'}.`)}
+  if(how=='h'){p.hand.push(c);chkEx(pl);msg(`Se añade ${c0.n} a la mano.`)}
+  else{const m=spSum(pl,c,how,c0.fus?{mats:[]}:{});if(!m){p.hand.push(c);return say('No se pudo invocar.')}msg(`Se invoca ${c0.n}.`)}
   ui();admGrid()}
-$('#aOff').onclick=()=>{ADM.on=false;closeAdm();say('Modo administrador desactivado')};$('#aX').onclick=closeAdm;
+$('#aOff').onclick=()=>{ADM.on=false;closeAdm()};$('#aX').onclick=closeAdm;
 $('#aq').oninput=admGrid;$('#asrc').onchange=e=>{ADM.src=e.target.value;admGrid();admSheet(null)};
 
 
@@ -1111,11 +1110,12 @@ $('#bSave').onclick=()=>{if(mainN(BD)<40)return say('El mazo principal necesita 
 $('#q').oninput=$('#flt').onchange=drawB;
 $('#nextBtn').onclick=nextPhase;$('#endBtn').onclick=endTurn;
 $('#logBtn').onclick=()=>$('#logPanel').toggleAttribute('hidden');
-$('#muteBtn').onclick=e=>{mute=!mute;e.target.textContent=mute?'🔇':'🔊'};
+$('#muteBtn').onclick=()=>volPress(true);
 $('#restartBtn').onclick=()=>{if(online()){if(confirm('¿Salir de la partida online?'))location.reload();return}if(G&&!G.over)try{SAVED=JSON.parse(JSON.stringify(G))}catch(e){}showMenu()};
 document.addEventListener('contextmenu',e=>e.preventDefault());
 buildBoard();loadDecks();
 (function init(){let s;try{s=JSON.parse(localStorage.getItem(KEY))}catch(e){}
   SAVED=s&&s.p&&!s.over&&s.p[0].st&&Array.isArray(s.Q)?s:null;showMenu();
-  const sala=new URLSearchParams(location.search).get('sala');if(sala)netJoin(sala)})();
+  const sala=new URLSearchParams(location.search).get('sala');if(sala){const go=()=>netJoin(sala);typeof Peer!='undefined'?go():window.addEventListener('load',go)}})();
 window.addEventListener('resize',()=>G&&hand());
+window.DUEL_OK=1;

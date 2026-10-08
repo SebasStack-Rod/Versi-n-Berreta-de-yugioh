@@ -49,7 +49,7 @@
 <div id="zoom" hidden></div>
 <div id="curtain" hidden></div>
 <div id="adm" hidden>
-  <div class="ah"><b>🛠 Modo administrador</b><span class="sp"></span><button class="nb" id="aOff">Desactivar</button><button class="nb" id="aX">✕</button></div>
+  <div class="ah"><b>⚙ Panel</b><span class="sp"></span><button class="nb" id="aOff">Desactivar</button><button class="nb" id="aX">✕</button></div>
   <div id="asw"></div>
   <div class="bs"><input id="aq" type="search" placeholder="Buscar carta…" autocomplete="off"><select id="asrc"><option value="deck">Mi mazo</option><option value="all">Todas las cartas</option></select></div>
   <div id="agrid" class="cg"></div>
@@ -57,7 +57,11 @@
 </div>
 <div id="pad" hidden><div class="padbox"><h3>Acceso restringido</h3><div id="pd"></div><div class="pk"></div><button class="nb" id="padX">Cancelar</button></div></div>
 <div id="rot"><p>📱↻<br>Girá el celular en vertical</p></div>
-<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script>
+window.addEventListener('error',function(e){if(!e.message)return;var d=document.createElement('pre');d.style.cssText='position:fixed;left:0;right:0;top:0;z-index:999;margin:0;padding:6px;background:#900;color:#fff;font:11px monospace;white-space:pre-wrap';d.textContent='ERROR: '+e.message+' ('+String(e.filename||'').split('/').pop()+':'+e.lineno+')';document.body.appendChild(d)},true);
+window.addEventListener('load',function(){setTimeout(function(){if(!window.DUEL_OK){var d=document.createElement('pre');d.style.cssText='position:fixed;left:0;right:0;top:0;z-index:999;margin:0;padding:6px;background:#900;color:#fff;font:11px monospace;white-space:pre-wrap';d.textContent='script.js no se cargó o se cortó antes de terminar';document.body.appendChild(d)}},300)});
+</script>
 <script src="script.js"></script>
+<script async src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
 </body>
 </html>
