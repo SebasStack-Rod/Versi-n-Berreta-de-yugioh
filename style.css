@@ -208,3 +208,23 @@ input,select{-webkit-user-select:text;user-select:text}
 #chatIn{flex:1;min-width:0;font-size:16px;padding:7px 9px;border-radius:8px;border:1px solid var(--edge);background:rgba(2,5,15,.6);color:#fff}
 #chatSend{flex:none;padding:6px 10px}
 .toast.chat{top:auto;bottom:22%;border-color:var(--neon)}
+
+/* Panel oculto: ajustes */
+#pad{background:rgba(4,7,20,.6)}
+#adm{gap:6px}
+.ah .seg{flex:1;flex-wrap:wrap}.ah .seg button{flex:1 1 auto}.ah>.nb{flex:none}
+#ast{flex:none;min-height:16px;font-size:12px;color:var(--gold)}
+#abody{flex:1;min-height:0;display:flex;flex-direction:column;gap:8px;overflow:auto;touch-action:pan-y}
+#abody>*{flex:none}#abody>.cg{flex:1 1 auto;min-height:160px}
+#abody>b{font-size:13px;color:var(--gold)}
+#abody>.nb{align-self:flex-start;min-width:0;padding:7px 12px;font-size:12px}
+.seg{flex-wrap:wrap}.seg button{flex:1 1 auto}
+.tile.at{touch-action:manipulation;cursor:pointer}
+.tile.at.sel{outline:2px solid var(--gold);box-shadow:0 0 12px var(--gold);z-index:1}
+.tile.at small{position:absolute;left:0;right:0;bottom:0;font-size:9px;line-height:1.3;text-align:center;background:rgba(0,0,0,.72);color:#fff;border-radius:0 0 4px 4px;overflow:hidden;white-space:nowrap}
+.arow{display:flex;gap:8px;align-items:center}.arow span{flex:none;width:64px;font-size:12px;color:#cfe0ff}
+.arow input{flex:1;min-width:0;font:inherit;color:#fff;padding:7px 10px;border-radius:10px;border:1px solid var(--neon);background:rgba(10,20,50,.6);outline:none}
+.arow .nb{min-width:0;padding:8px 14px;font-size:12px}
+.agrid2{display:grid;grid-template-columns:1fr 1fr;gap:6px}.agrid2 .nb{min-width:0;padding:9px 6px;font-size:12px}
+.aact small{flex:1 1 100%;font-size:11px;color:#9fb0cf;font-weight:400;max-height:52px;overflow:auto;touch-action:pan-y}
+.aact{max-height:42vh;overflow:auto;touch-action:pan-y}

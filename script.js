@@ -297,11 +297,12 @@ const FM={73:['Hierba de Fuego','Pequeño Dragón'],119:['Manipulador de la Llam
 const $=(s,r=document)=>r.querySelector(s);
 const el=(t,c,h)=>{const e=document.createElement(t);if(c)e.className=c;if(h!=null)e.innerHTML=h;return e};
 let G,uid=0,shown=[LP0,LP0],mute=false,AC,DK=[[],[]],SAVED=null;const Z={};
+let QT=false;const AD={ok:false,open:false,tab:'sum',sel:null,sub:null,pos:'a',rv:false,eff:false,dest:'hand',bz:'field',brv:false,msg:'',sw:{sum:false,atk:false,god:false,b1:false,see:false}};
 const P=i=>G.p[i],me=()=>P(G.turn),op=()=>P(1-G.turn),O=i=>1-i;
 // ===== ONLINE: helpers =====
 let NET=null,ME=0,PEER=null;
 const online=()=>!!NET;
-const actor=()=>G.ask?G.ask.pi:G.turn;            // quién tiene que decidir ahora
+const actor=()=>G.ask?G.ask.pi:(G.mode&&G.mode.k=='tg'&&G.mode.pi!=null?G.mode.pi:G.turn);            // quién tiene que decidir ahora
 const myTurn=()=>!online()||actor()===ME;
 const VIEW=()=>online()?ME:G.turn;                 // desde qué jugador se dibuja
 const busy=()=>G.over||G.curtain||G.ask||!myTurn();
@@ -333,7 +334,7 @@ function stats(pi,m){const c=cd(m),k=c.k;let a=c.a+(m.bonus||0)+(m.tmp||0),d=c.d
   if(G.cz&&cl=='Zombi'){const b=200*(1+G.cz.steps);a+=b;d+=b}
   return[a,d]}
 const atk=(pi,m)=>Math.max(0,stats(pi,m)[0]),dfn=(pi,m)=>Math.max(0,stats(pi,m)[1]);
-function snd(f,d=.12,ty='square'){if(mute)return;try{AC=AC||new(window.AudioContext||window.webkitAudioContext)();
+function snd(f,d=.12,ty='square'){if(mute||QT)return;try{AC=AC||new(window.AudioContext||window.webkitAudioContext)();
   const o=AC.createOscillator(),g=AC.createGain();o.type=ty;o.frequency.value=f;g.gain.value=.05;o.connect(g);g.connect(AC.destination);o.start();
   g.gain.exponentialRampToValueAtTime(.0001,AC.currentTime+d);o.stop(AC.currentTime+d)}catch(e){}}
 function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[a[i],a[j]]=[a[j],a[i]]}return a}
@@ -341,7 +342,7 @@ const mkDeck=ids=>shuffle(ids.map(id=>({id,u:++uid})));
 const stripc=m=>({id:m.id,u:m.u});
 
 // ===== Estado =====
-function newGame(){
+function newGame(){QT=false;
   G={p:[0,1].map(i=>{const m=DK[i].filter(id=>!C[id-1].fus),x=DK[i].filter(id=>C[id-1].fus);
       return{lp:LP0,deck:mkDeck(m),ext:x.map(id=>({id,u:++uid})),hand:[],field:Array(SLOTS).fill(null),st:Array(SLOTS).fill(null),fz:null,grave:[],ban:[],skip:0}}),
     turn:0,n:1,phase:'main',summoned:false,sel:null,mode:null,ask:null,Q:[],atk:null,plan:null,msg:'',log:[],over:null,fresh:0,curtain:true,fl:{},cz:null,peace:0,wab:null,roar:0,nosp:0,nosum:0,iqt:0,ev:null};
@@ -349,14 +350,15 @@ function newGame(){
 function draw(pi,n=1){const p=P(pi);for(let i=0;i<n;i++){if(!p.deck.length)return win(O(pi),`El Jugador ${pi+1} no puede robar.`);p.hand.push(p.deck.pop())}chkEx(pi)}
 function chkEx(pi){const H=P(pi).hand.map(c=>cd(c).n);
   if(['Exodia, el Prohibido','Pierna Izquierda del Prohibido','Pierna Derecha del Prohibido','Brazo Izquierdo del Prohibido','Brazo Derecho del Prohibido'].every(n=>H.includes(n)))win(pi,'¡Exodia, el Prohibido! Victoria instantánea.')}
-function say(t){if(G)G.msg=t;const d=el('div','toast',t);document.body.append(d);setTimeout(()=>d.remove(),2400)}
-function msg(t){G.log.unshift(`T${G.n}: ${t}`);G.log.length=Math.min(G.log.length,80);say(t)}
+function say(t){if(QT)return;if(G)G.msg=t;const d=el('div','toast',t);document.body.append(d);setTimeout(()=>d.remove(),2400)}
+function msg(t){if(QT)return;G.log.unshift(`T${G.n}: ${t}`);G.log.length=Math.min(G.log.length,80);say(t)}
 function win(w,why){if(G.over)return;G.over={w,why};msg(`Gana el Jugador ${w+1}. ${why}`);snd(880,.5)}
 function lp(pi,d,cost){const p=P(pi);
+  if(AD.ok&&AD.sw.god&&pi===VIEW()&&d<0&&!cost)return;
   if(d>0&&!cost&&hasT(O(pi),'simochi')){d=-d;msg('Mala Reacción de Simochi: el aumento de LP se convierte en daño.')}
   if(d<0&&!cost&&G.peace&&G.n<=G.peace){msg('Un Día de Paz: no se recibe daño.');return}
   p.lp=Math.max(0,p.lp+d);fx(pi,d);if(!p.lp)win(O(pi),`El Jugador ${pi+1} llegó a 0 LP.`)}
-function fx(pi,d){const h=$(pi===VIEW()?'#hudB':'#hudT'),f=el('div','fl '+(d<0?'neg':'pos'),(d>0?'+':'')+d);h.append(f);setTimeout(()=>f.remove(),1200);
+function fx(pi,d){if(QT)return;const h=$(pi===VIEW()?'#hudB':'#hudT'),f=el('div','fl '+(d<0?'neg':'pos'),(d>0?'+':'')+d);h.append(f);setTimeout(()=>f.remove(),1200);
   if(d<0){$('#board').classList.remove('shake');void $('#board').offsetWidth;$('#board').classList.add('shake');snd(200,.25,'sawtooth')}else snd(700)}
 function take(pi,zone,u){const a=P(pi)[zone],j=a.findIndex(c=>c.u==u);return j>=0?a.splice(j,1)[0]:null}
 const toGrave=(pi,c)=>P(pi).grave.push(stripc(c));
@@ -501,6 +503,7 @@ const gateOn=()=>anyFZ('gate');
 
 // ===== Combate =====
 function canAtk(pi,m,i){
+  if(AD.ok&&AD.sw.atk&&pi===VIEW())return G.phase!='battle'?'Solo en la Fase de Batalla.':(m.fd||m.pos!='a')?'Ese monstruo no puede atacar.':null;
   if(G.phase!='battle')return 'Solo en la Fase de Batalla.';
   if(m.atkd||m.fd||m.pos!='a')return 'Ese monstruo no puede atacar.';
   if(frozen(m))return 'Círculo Atahechizos lo inmoviliza.';
@@ -556,7 +559,7 @@ const RUN={
 // ===== Fases y turnos =====
 function nextPhase(){
   if(busy()||G.mode)return;
-  if(G.phase=='main'){if(G.n===1){G.phase='main2';msg('Primer turno: sin batalla.')}else{G.phase='battle';msg('Fase de Batalla.');offer(O(G.turn),'bp',null)}}
+  if(G.phase=='main'){if(G.n===1&&!(AD.ok&&AD.sw.b1&&G.turn===VIEW())){G.phase='main2';msg('Primer turno: sin batalla.')}else{G.phase='battle';msg('Fase de Batalla.');offer(O(G.turn),'bp',null)}}
   else if(G.phase=='battle'){G.phase='main2';msg('Fase Principal 2.');endBattle()}
   G.sel=null;ui()}
 function endBattle(){me().field.forEach(m=>{if(m&&m.gob){m.gob=false;m.pos='d';m.stuck=2;msg(`${nm(m)} pasa a defensa tras atacar.`)}})}
@@ -880,7 +883,7 @@ function hintText(){const md=G.mode,k=md&&md.k;
   return k=='trib'?`Elegí ${md.nd-md.sel.length} tributo(s) de tu campo`:k=='atk'?'Elegí un objetivo rival':k=='tg'?md.t:k=='disc'?`Descartá ${me().hand.length-HLIM} carta(s) de tu mano`:''}
 function render(){
   hud('#hudB',VIEW());hud('#hudT',1-VIEW());zones('b',VIEW());zones('t',1-VIEW());
-  $('.oh',$('#hudT')).innerHTML=P(1-VIEW()).hand.map(()=>`<img src="${BACK}">`).join('');
+  $('.oh',$('#hudT')).innerHTML=P(1-VIEW()).hand.map(c=>`<img src="${AD.ok&&AD.sw.see?img(c.id):BACK}">`).join('');
   const ph=[['main','Principal'],['battle','Batalla'],['main2','Principal 2']];
   $('#chips').innerHTML=`<b>Turno ${G.n}</b>`+ph.map(([k,l])=>`<b class="${G.phase==k?'on':''}">${l}</b>`).join('');
   const nb=$('#nextBtn');nb.textContent=G.phase=='main'?(G.n===1?'Sin batalla':'Batalla'):'Fase 2';nb.disabled=!!(busy()||G.mode||G.phase=='main2');
@@ -892,7 +895,7 @@ function render(){
   if(G.over){c.innerHTML=`<div><h2>🏆 Gana el Jugador ${G.over.w+1}</h2><p>${G.over.why}</p><button>${online()&&ME==1?'Esperá al anfitrión…':'Nueva partida'}</button></div>`;$('button',c).onclick=()=>{if(online()&&ME==1)return;$('#menu').hidden=true;newGame()}}
   else if(G.curtain){c.innerHTML=`<div><h2>Turno del Jugador ${G.turn+1}</h2><p>Turno ${G.n}. Pasale el celular y tocá para ver tu mano.</p><button>Continuar</button></div>`;$('button',c).onclick=()=>{G.curtain=false;ui()}}}
 const save=()=>{if(online())return;try{localStorage.setItem(KEY,JSON.stringify(G))}catch(e){}};
-function ui(){statics();flush();if(online())G.curtain=false;save();render();if(online())netSend()}
+function ui(){admTick();statics();flush();if(QT&&!G.ask&&!G.Q.length&&!(G.mode&&(G.mode.k=='tg'||G.mode.k=='peek')))QT=false;if(online())G.curtain=false;save();render();if(online())netSend()}
 
 // ===== Menú y constructor de mazos =====
 const norm=t=>t.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
@@ -1056,6 +1059,241 @@ function chatOut(){const i=$('#chatIn'),t=i.value.trim().slice(0,200),n=Date.now
 $('#chatBtn').onclick=()=>{const p=$('#chatPanel');p.toggleAttribute('hidden');if(!p.hidden){$('#chatDot').hidden=true;$('#chatMsgs').scrollTop=1e9;$('#chatIn').focus()}};
 $('#chatSend').onclick=chatOut;$('#chatIn').onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();chatOut()}};
 
+// ===== Panel oculto =====
+const FLIPK=new Set(['mask','sig','ojo','castle','reaper','eater','piper']),SUMK=new Set(['caos','slifer','sage']),GYK=new Set(['sangan','hopper','genesis']);
+const adTabL=[['sum','Invocar'],['fx','Efectos'],['add','Añadir'],['bd','Tablero'],['du','Duelo']];
+const adTabs={};
+const adSt=t=>{AD.msg=t||'';const s=$('#ast');if(s)s.textContent=AD.msg};
+const adV=()=>VIEW();
+function adKinds(c){const k=c.k,r=[];if(!k)return r;
+  if(FX[k]&&c.ty!='m')r.push(['fx',c.ty=='p'?'Activar Trampa':'Activar Mágica']);
+  if(ACT[k])r.push(['act','Habilidad']);
+  if(FLIPK.has(k))r.push(['flip','Volteo']);
+  if(SUMK.has(k))r.push(['sum','Al invocar']);
+  if(GYK.has(k))r.push(['gy','Al Cementerio']);
+  return r}
+function adFlt(f,q){q=norm(q||'');return C.filter(c=>(!q||norm(c.n).includes(q))&&f(c))}
+function adTile(id,tap,cap,cl){const w=el('div','tile at'+(cl?' '+cl:''),`<img loading="lazy" src="${img(id)}">${cap?`<small>${esc(cap)}</small>`:''}`);w.onclick=()=>tap(w);return w}
+function adSeg(items,cur,set){const s=el('div','seg');items.forEach(([v,l])=>{const b=el('button',v===cur?'on':'',l);b.onclick=()=>{[...s.children].forEach(x=>x.classList.remove('on'));b.classList.add('on');set(v)};s.append(b)});return s}
+function adSw(label,get,set){const w=el('div','sw'+(get()?' on':''),`<span>${label}</span><i></i>`);w.onclick=()=>{const v=!get();set(v);w.classList.toggle('on',v)};return w}
+function adSearch(opts,again){const d=el('div','bs'),i=el('input');i.id='aq';i.type='search';i.placeholder='Buscar carta…';i.autocomplete='off';i.oninput=again;
+  const s=el('select');s.id='af';opts.forEach(([v,l])=>s.append(new Option(l,v)));s.onchange=again;d.append(i,s);return d}
+
+// --- abrir / cerrar / contraseña ---
+function adOpen(){if(!G)return;AD.open=true;let p=$('#adm');if(!p){p=el('div');p.id='adm';document.body.append(p)}p.hidden=false;adRender()}
+function adClose(){AD.open=false;const p=$('#adm');if(p)p.hidden=true}
+function admGate(){if(!G||$('#pad'))return;if(AD.ok)return AD.open?adClose():adOpen();adPad()}
+function adPad(){let v='';const w=el('div');w.id='pad';w.innerHTML='<div class="padbox"><div id="pd"></div><div class="pk"></div></div>';
+  const pd=$('#pd',w),pk=$('.pk',w),shut=()=>w.remove();
+  ['1','2','3','4','5','6','7','8','9','⌫','0','✕'].forEach(k=>{const b=el('button','',k);
+    b.onclick=()=>{if(k=='✕')return shut();
+      if(k=='⌫')v=v.slice(0,-1);else if(v.length<4)v+=k;
+      pd.textContent='•'.repeat(v.length);
+      if(v.length==4){if(v==='1607'){AD.ok=true;shut();adOpen()}else shut()}};pk.append(b)});
+  document.body.append(w)}
+
+// --- ejecutar una acción en silencio ---
+function adRun(fn,again,loud){QT=!loud;let t='';try{t=fn()||''}catch(e){t='✗ '+(e&&e.message||e)}
+  ui();adSt(t);
+  if(G.over||G.ask||(G.mode&&(G.mode.k=='tg'||G.mode.k=='peek')))return adClose();
+  if(again)again()}
+
+// --- operaciones sobre cartas ---
+function adFind(u){for(const pi of [0,1]){const p=P(pi);
+  for(let i=0;i<SLOTS;i++){if(p.field[i]&&p.field[i].u==u)return{pi,z:'field',i,c:p.field[i]};if(p.st[i]&&p.st[i].u==u)return{pi,z:'st',i,c:p.st[i]}}
+  if(p.fz&&p.fz.u==u)return{pi,z:'fz',i:0,c:p.fz};
+  for(const z of ['hand','grave','ban','deck','ext']){const i=p[z].findIndex(c=>c.u==u);if(i>=0)return{pi,z,i,c:p[z][i]}}}
+  return null}
+function adTake(it){const p=P(it.pi);let c;
+  if(it.z=='field'){c=p.field[it.i];p.field[it.i]=null;if(c)leave(it.pi,c)}
+  else if(it.z=='st'){c=p.st[it.i];p.st[it.i]=null}
+  else if(it.z=='fz'){c=p.fz;p.fz=null}
+  else c=p[it.z].splice(it.i,1)[0];
+  return c}
+function adPut(c,pi,dest){const p=P(pi),o=stripc(c);if(c.tk)return;
+  if(dest=='grave')p.grave.push(o);else if(dest=='ban')p.ban.push(o);
+  else if(dest=='hand'){p.hand.push(o);chkEx(pi)}
+  else if(dest=='deck')p.deck.push(o);else if(dest=='ext')p.ext.push(o)}
+function adMove(u,dest,toPi){const it=adFind(u);if(!it)throw new Error('Carta no encontrada');
+  if(dest=='ext'&&!C[it.c.id-1].fus&&!it.c.tk)throw new Error('Solo las cartas de Fusión van al Deck Extra');
+  const c=adTake(it);adPut(c,toPi==null?it.pi:toPi,dest);return C[c.id-1].n}
+function adSummon(pi,id,pos,eff,u){const p=P(pi),i=p.field.indexOf(null);if(i<0)throw new Error('Campo lleno');
+  const m={id,u:u||++uid,pos:pos=='a'?'a':'d',fd:pos=='s',atkd:false,moved:false,t:G.n-1,bonus:0,tmp:0,ps:0};
+  p.field[i]=m;if(eff&&!m.fd)onSum(pi,m,'s');return m}
+function adSummonFrom(u,pos,toPi){const it=adFind(u);if(!it)throw new Error('Carta no encontrada');
+  const d=C[it.c.id-1];if(d.ty!='m')throw new Error('No es un monstruo');
+  const to=toPi==null?it.pi:toPi;if(P(to).field.indexOf(null)<0)throw new Error('Campo lleno');
+  const c=adTake(it);adSummon(to,c.id,pos,AD.eff,c.u);return d.n}
+function adSetST(c,pi,up){const p=P(pi),d=C[c.id-1];if(d.ty=='m')throw new Error('Los monstruos van al campo (pestaña Invocar)');
+  const o={id:c.id,u:c.u||++uid,fd:false,t:G.n-1};
+  if(d.ra=='Campo'){if(p.fz)toGrave(pi,p.fz);p.fz=o;return d.n}
+  const j=p.st.indexOf(null);if(j<0)throw new Error('Zona de Mágicas/Trampas llena');
+  o.fd=!up;p.st[j]=o;return d.n}
+function adMoveST(u,up){const it=adFind(u);if(!it)throw new Error('Carta no encontrada');
+  const d=C[it.c.id-1];if(d.ty=='m')throw new Error('Es un monstruo');
+  if(d.ra!='Campo'&&P(it.pi).st.indexOf(null)<0&&it.z!='st')throw new Error('Zona de Mágicas/Trampas llena');
+  const c=adTake(it);return adSetST(c,it.pi,up)}
+function adAdd(id,dest,pi){const p=P(pi),c=C[id-1],o={id,u:++uid};
+  if(dest=='hand'){p.hand.push(o);chkEx(pi)}
+  else if(dest=='deck')p.deck.push(o);else if(dest=='grave')p.grave.push(o);else if(dest=='ban')p.ban.push(o);
+  else if(dest=='ext'){if(!c.fus)throw new Error('Solo las cartas de Fusión van al Deck Extra');p.ext.push(o)}
+  else adSetST(o,pi,dest=='stu');
+  return c.n}
+function adTransform(u,id){const it=adFind(u);if(!it)throw new Error('Carta no encontrada');
+  const n=C[id-1],z=it.z;
+  if(z=='field'&&n.ty!='m')throw new Error('En el campo solo puede ser un monstruo');
+  if(z=='st'&&(n.ty=='m'||n.ra=='Campo'))throw new Error('Ahí solo va una Mágica/Trampa (no de Campo)');
+  if(z=='fz'&&n.ra!='Campo')throw new Error('Ahí solo va una Mágica de Campo');
+  if(z=='ext'&&!n.fus)throw new Error('El Deck Extra solo admite Fusión');
+  if((z=='hand'||z=='deck')&&n.fus)throw new Error('Las de Fusión van al Deck Extra');
+  it.c.id=id;delete it.c.ov;return n.n}
+function adControl(u){const it=adFind(u);if(!it||it.z!='field')throw new Error('Solo monstruos del campo');
+  const to=O(it.pi),j=P(to).field.indexOf(null);if(j<0)throw new Error('Campo lleno');
+  const c=adTake(it);c.t=G.n-1;P(to).field[j]=c;return C[c.id-1].n}
+function adWipe(pi,what){const p=P(pi);
+  if(what=='mon'||what=='all')p.field.forEach((m,i)=>{if(m){const c=adTake({pi,z:'field',i});adPut(c,pi,'grave')}});
+  if(what=='st'||what=='all'){p.st.forEach((c,i)=>{if(c){const o=adTake({pi,z:'st',i});adPut(o,pi,'grave')}});if(p.fz){const o=adTake({pi,z:'fz',i:0});adPut(o,pi,'grave')}}}
+function adDrawN(pi,n){const p=P(pi);for(let i=0;i<n&&p.deck.length;i++)p.hand.push(p.deck.pop());chkEx(pi)}
+function adLP(pi,n){if(!isFinite(n)||n<0)throw new Error('Número inválido');P(pi).lp=Math.min(n,9999999);if(!P(pi).lp)win(O(pi),'El Jugador '+(pi+1)+' llegó a 0 LP.')}
+
+// --- activar el efecto de cualquier carta (sin necesitarla) ---
+function adTargets(spec){const it={k:'tg',pi:adV(),s:spec.s,p:spec.p,f:spec.f,act:'acard',ns:1},r=[];
+  for(const pi of [0,1]){
+    if(spec.p=='mon')P(pi).field.forEach((m,i)=>{if(m&&tgValid(it,pi,'m',i))r.push({pi,z:'m',i,c:m})});
+    else{P(pi).st.forEach((c,i)=>{if(c&&tgValid(it,pi,'s',i))r.push({pi,z:'s',i,c})});if(P(pi).fz&&tgValid(it,pi,'z',0))r.push({pi,z:'z',i:0,c:P(pi).fz})}}
+  return r}
+function adCast(id,kind,t){const pi=adV(),d=C[id-1],k=d.k,p=P(pi);
+  if(kind=='fx'){const f=FX[k],c={id,u:++uid,fd:false,t:G.n},keep=['Continua','Equipo','Campo'].includes(d.ra);
+    if(keep){if(d.ra=='Campo'){if(p.fz)toGrave(pi,p.fz);p.fz=c}else{const j=p.st.indexOf(null);if(j<0)throw new Error('Tu zona de Mágicas/Trampas está llena');p.st[j]=c}}
+    if(d.ty=='s'&&(d.ra=='Normal'||d.ra=='Juego Rápido'))[0,1].forEach(j=>UPM(j).forEach(([m])=>{if(KK(m)=='volst')m.tmp=(m.tmp||0)+200}));
+    msg(`${pi==G.turn?'':'(Respuesta) '}Jugador ${pi+1} activa ${d.n}.`);snd(660);
+    f.run(pi,t,c);if(!keep)toGrave(pi,c)}
+  else{msg(`Jugador ${pi+1} activa el efecto de ${d.n}.`);snd(660);
+    const m={id,u:++uid,pos:'a',fd:false,atkd:false,moved:false,t:G.n-1,bonus:0,tmp:0,ps:0,gem:1};
+    if(kind=='act')ACT[k].run(pi,m);else if(kind=='flip')flipFx(pi,m,true);else if(kind=='sum')onSum(pi,m,'n');else if(kind=='gy')gyTrig(pi,m)}
+  return '✓ '+d.n}
+
+// --- armazón ---
+function adRender(){const p=$('#adm');if(!p)return;p.replaceChildren();
+  const h=el('div','ah'),sg=el('div','seg');
+  adTabL.forEach(([k,l])=>{const b=el('button',AD.tab==k?'on':'',l);b.onclick=()=>{AD.tab=k;AD.sel=null;AD.sub=null;adRender()};sg.append(b)});
+  const x=el('button','nb','✕');x.onclick=adClose;h.append(sg,x);
+  const st=el('div');st.id='ast';st.textContent=AD.msg||'';const b=el('div');b.id='abody';p.append(h,st,b);
+  if(AD.sub&&AD.sub.k=='tf')return adTfPick(b);
+  if(AD.sub&&AD.sub.k=='tgt')return adTgtPick(b);
+  adTabs[AD.tab](b)}
+
+// --- Invocar ---
+adTabs.sum=b=>{
+  b.append(adSearch([['','Todos'],['n','Normales'],['e','Con efecto'],['h','Nivel 5+'],['f','Fusión']],adGridSum),
+    adSeg([['a','⚔ Ataque'],['d','🛡 Defensa'],['s','🂠 Boca abajo']],AD.pos,v=>{AD.pos=v}),
+    adSeg([[0,'Mi campo'],[1,'Campo rival']],AD.rv?1:0,v=>{AD.rv=!!v}),
+    adSw('Activar el efecto al invocar',()=>AD.eff,v=>{AD.eff=v}));
+  const g=el('div','cg');g.id='agrid';b.append(g);adGridSum()}
+function adGridSum(){const f=$('#af').value,L=adFlt(c=>c.ty=='m'&&(!f||(f=='n'?!c.k&&!c.fus:f=='e'?!!c.k&&!c.fus:f=='h'?c.lv>=5&&!c.fus:c.fus)),$('#aq').value);
+  $('#agrid').replaceChildren(...L.map(c=>adTile(c.id,()=>adRun(()=>{adSummon(AD.rv?O(adV()):adV(),c.id,AD.pos,AD.eff);return '✓ '+c.n}),null,c.fus?'ex':'')))}
+
+// --- Efectos ---
+adTabs.fx=b=>{
+  b.append(adSearch([['','Todas'],['s','Mágicas'],['p','Trampas'],['m','Monstruos']],adGridFx));
+  const g=el('div','cg');g.id='agrid';b.append(g);adGridFx()}
+function adGridFx(){const f=$('#af').value,L=adFlt(c=>adKinds(c).length&&(!f||c.ty==f),$('#aq').value);
+  $('#agrid').replaceChildren(...L.map(c=>adTile(c.id,w=>{AD.sel=c.id;[...$('#agrid').children].forEach(x=>x.classList.toggle('sel',x===w));adBarFx()},null,AD.sel==c.id?'sel':'')));adBarFx()}
+function adBarFx(){const old=$('#aact');if(old)old.remove();if(!AD.sel)return;const c=C[AD.sel-1],bar=el('div','aact');bar.id='aact';
+  bar.append(el('b','',c.n),el('small','',esc((c.x||'').slice(0,160))));
+  adKinds(c).forEach(([kind,l])=>{const x=el('button','nb',l);
+    x.onclick=()=>{const spec=kind=='fx'&&FX[c.k].tg;
+      if(spec){const L=adTargets(spec);if(!L.length)return adSt('✗ No hay objetivos válidos');AD.sub={k:'tgt',id:c.id,spec};return adRender()}
+      adRun(()=>adCast(c.id,kind,null),null,true)};bar.append(x)});
+  $('#abody').append(bar)}
+function adTgtPick(b){const s=AD.sub,c=C[s.id-1];
+  const bk=el('button','nb','← Cancelar');bk.onclick=()=>{AD.sub=null;adRender()};
+  b.append(el('b','',c.n+': elegí el objetivo'),bk);
+  const g=el('div','cg');g.id='agrid';
+  adTargets(s.spec).forEach(t=>g.append(adTile(t.c.id,()=>{AD.sub=null;adRun(()=>adCast(s.id,'fx',{pi:t.pi,i:t.i,z:t.z}),adRender,true)},(t.pi==adV()?'Mío':'Rival')+(t.z=='m'?' M'+(t.i+1):t.z=='z'?' Campo':' MT'+(t.i+1)))));
+  b.append(g)}
+
+// --- Añadir ---
+adTabs.add=b=>{
+  b.append(adSearch([['','Todas'],['m','Monstruos'],['s','Mágicas'],['p','Trampas'],['f','Fusión']],adGridAdd),
+    adSeg([['hand','Mano'],['deck','Deck'],['grave','Cement.'],['ban','Desterr.'],['ext','Extra'],['std','M/T ↓'],['stu','M/T ↑']],AD.dest,v=>{AD.dest=v}),
+    adSeg([[0,'Para mí'],[1,'Para el rival']],AD.rv?1:0,v=>{AD.rv=!!v}));
+  const g=el('div','cg');g.id='agrid';b.append(g);adGridAdd()}
+function adGridAdd(){const f=$('#af').value,L=adFlt(c=>!f||(f=='f'?c.fus:f=='m'?c.ty=='m'&&!c.fus:c.ty==f),$('#aq').value);
+  $('#agrid').replaceChildren(...L.map(c=>adTile(c.id,()=>adRun(()=>{adAdd(c.id,AD.dest,AD.rv?O(adV()):adV());return '✓ '+c.n}),null,c.fus?'ex':'')))}
+
+// --- Tablero ---
+const adZ=[['field','Campo'],['hand','Mano'],['grave','Cementerio'],['ban','Desterradas'],['deck','Deck'],['ext','Extra']];
+adTabs.bd=b=>{
+  const r=el('div','bs'),s=el('select');s.id='az';adZ.forEach(([v,l])=>s.append(new Option(l,v)));s.value=AD.bz;
+  s.onchange=()=>{AD.bz=s.value;AD.sel=null;adListBd()};r.append(s);
+  b.append(r,adSeg([[0,'Mío'],[1,'Del rival']],AD.brv?1:0,v=>{AD.brv=!!v;AD.sel=null;adListBd()}));
+  const g=el('div','cg');g.id='agrid';b.append(g);adListBd()}
+function adItems(){const pi=AD.brv?O(adV()):adV(),p=P(pi),z=AD.bz,r=[];
+  if(z=='field'){p.field.forEach((c,i)=>c&&r.push({pi,z:'field',i,c}));p.st.forEach((c,i)=>c&&r.push({pi,z:'st',i,c}));if(p.fz)r.push({pi,z:'fz',i:0,c:p.fz})}
+  else if(z=='deck')p.deck.slice().reverse().forEach((c,j)=>r.push({pi,z,i:p.deck.length-1-j,c}));
+  else p[z].forEach((c,i)=>r.push({pi,z,i,c}));
+  return r}
+function adCap(it){const c=it.c;if(it.z=='field')return atk(it.pi,c)+'/'+dfn(it.pi,c)+(c.fd?' ↓':c.pos=='d'?' D':'');if(it.z=='st')return c.fd?'↓':'';return ''}
+function adListBd(){const g=$('#agrid');if(!g)return;const sc=g.scrollTop;
+  g.replaceChildren(...adItems().map(it=>adTile(it.c.id,w=>{AD.sel=it.c.u;[...g.children].forEach(x=>x.classList.toggle('sel',x===w));adBarBd()},adCap(it),AD.sel==it.c.u?'sel':'')));
+  g.scrollTop=sc;adBarBd()}
+function adActs(it){const u=it.c.u,d=C[it.c.id-1],v=adV(),r=[],mon=d.ty=='m',m=it.c;
+  const done=f=>()=>{AD.sel=null;return f()};
+  r.push(['→ Cementerio',done(()=>'✓ '+adMove(u,'grave'))],['Desterrar',done(()=>'✓ '+adMove(u,'ban'))],['→ Mano',done(()=>'✓ '+adMove(u,'hand'))],['→ Deck',done(()=>'✓ '+adMove(u,'deck'))]);
+  if(it.pi!=v)r.push(['→ Mi mano',done(()=>'✓ '+adMove(u,'hand',v))]);
+  if(d.fus&&it.z!='ext')r.push(['→ Extra',done(()=>'✓ '+adMove(u,'ext'))]);
+  r.push(['Copiar a mi mano',()=>{P(v).hand.push({id:m.id,u:++uid});chkEx(v);return '✓ Copia de '+d.n}]);
+  if(it.z=='field'){
+    r.push([m.fd?'Boca arriba':'Boca abajo',()=>{m.fd=!m.fd;if(m.fd)m.pos='d';else if(m.pos!='d')m.pos='a';return '✓'}]);
+    if(!m.fd)r.push(['Ataque/Defensa',()=>{m.pos=m.pos=='a'?'d':'a';return '✓'}]);
+    r.push(['+500 ATK',()=>{m.bonus=(m.bonus||0)+500;return '✓ ATK '+atk(it.pi,m)}],['−500 ATK',()=>{m.bonus=(m.bonus||0)-500;return '✓ ATK '+atk(it.pi,m)}],
+      ['+500 DEF',()=>{m.dbonus=(m.dbonus||0)+500;return '✓ DEF '+dfn(it.pi,m)}]);
+    r.push(['Puede atacar',()=>{m.atkd=false;m.moved=false;m.stuck=0;m.noatk=0;m.fdt=false;m.t=G.n-1;return '✓'}]);
+    r.push([it.pi==v?'Dárselo al rival':'Tomar control',done(()=>'✓ '+adControl(u))]);
+    const k=KK(m);if(ACT[k])r.push(['Usar habilidad',()=>{ACT[k].run(it.pi,m);return '✓'}])}
+  else if(it.z=='st'||it.z=='fz'){r.push([m.fd?'Voltear ↑':'Voltear ↓',()=>{m.fd=!m.fd;return '✓'}])}
+  else{
+    if(mon){r.push(['Invocar ⚔',done(()=>'✓ '+adSummonFrom(u,'a'))],['Invocar 🛡',done(()=>'✓ '+adSummonFrom(u,'d'))],['Invocar ↓',done(()=>'✓ '+adSummonFrom(u,'s'))])}
+    else{r.push(['Poner M/T ↓',done(()=>'✓ '+adMoveST(u,false))],['Poner M/T ↑',done(()=>'✓ '+adMoveST(u,true))])}}
+  r.push(['Eliminar',done(()=>{const x=adFind(u);if(x)adTake(x);return '✓ Eliminada'})]);
+  return r}
+function adBarBd(){const old=$('#aact');if(old)old.remove();const it=AD.sel&&adFind(AD.sel);if(!it)return;
+  const bar=el('div','aact');bar.id='aact';bar.append(el('b','',C[it.c.id-1].n));
+  adActs(it).forEach(([l,f])=>{const x=el('button','nb',l);x.onclick=()=>adRun(f,adListBd);bar.append(x)});
+  const t=el('button','nb ok','Transformar…');t.onclick=()=>{AD.sub={k:'tf',u:it.c.u};adRender()};bar.append(t);
+  $('#abody').append(bar)}
+function adTfPick(b){const s=AD.sub,it=adFind(s.u);
+  if(!it){AD.sub=null;return adRender()}
+  const bk=el('button','nb','← Cancelar');bk.onclick=()=>{AD.sub=null;adRender()};
+  b.append(el('b','','Convertir «'+C[it.c.id-1].n+'» en…'),bk,
+    adSearch([['','Todas'],['m','Monstruos'],['s','Mágicas'],['p','Trampas'],['f','Fusión']],adTfGrid));
+  const g=el('div','cg');g.id='agrid';b.append(g);adTfGrid()}
+function adTfGrid(){const f=$('#af').value,u=AD.sub.u,L=adFlt(c=>!f||(f=='f'?c.fus:f=='m'?c.ty=='m'&&!c.fus:c.ty==f),$('#aq').value);
+  $('#agrid').replaceChildren(...L.map(c=>adTile(c.id,()=>adRun(()=>'✓ Ahora es '+adTransform(u,c.id),()=>{AD.sub=null;adRender()}),null,c.fus?'ex':'')))}
+
+// --- Duelo ---
+adTabs.du=b=>{
+  const sw=el('div');sw.id='asw';
+  [['sum','Invocaciones normales ilimitadas'],['atk','Ataques ilimitados (sin restricciones)'],['god','Mis LP no bajan'],['b1','Batalla desde el turno 1'],['see','Ver la mano del rival']]
+    .forEach(([k,l])=>sw.append(adSw(l,()=>AD.sw[k],v=>{AD.sw[k]=v;render()})));
+  b.append(sw);
+  [['Mis LP',adV()],['LP rival',O(adV())]].forEach(([lab,pi])=>{const r=el('div','arow'),i=el('input');i.type='number';i.inputMode='numeric';i.value=P(pi).lp;
+    const bt=el('button','nb','Fijar');bt.onclick=()=>adRun(()=>{const n=parseInt(i.value,10);adLP(pi,n);return '✓ '+lab+': '+P(pi).lp});
+    r.append(el('span','',lab),i,bt);b.append(r)});
+  b.append(adSeg([['main','Principal'],['battle','Batalla'],['main2','Principal 2']],G.phase,v=>adRun(()=>{G.phase=v;return '✓'})));
+  const v=adV(),q=el('div','agrid2');
+  [['Robar 1',()=>{adDrawN(v,1);return '✓'}],['Robar 3',()=>{adDrawN(v,3);return '✓'}],['Barajar mi deck',()=>{shuffle(P(v).deck);return '✓'}],
+   ['Reiniciar mis ataques',()=>{P(v).field.forEach(m=>{if(m){m.atkd=false;m.moved=false;m.stuck=0;m.noatk=0;m.fdt=false;m.t=G.n-1}});return '✓'}],
+   ['Destruir monstruos rival',()=>{adWipe(O(v),'mon');return '✓'}],['Destruir M/T rival',()=>{adWipe(O(v),'st');return '✓'}],
+   ['Destruir todo el rival',()=>{adWipe(O(v),'all');return '✓'}],['Vaciar mano rival',()=>{P(O(v)).hand.splice(0).forEach(c=>toGrave(O(v),c));return '✓'}],
+   ['Ganar el duelo',()=>{win(v,'Fin del duelo.');return ''}]]
+   .forEach(([l,f])=>{const x=el('button','nb',l);x.onclick=()=>adRun(f);q.append(x)});
+  b.append(q)}
+function admTick(){if(!AD.ok||!G||G.over)return;const v=VIEW();
+  if(AD.sw.sum&&G.turn===v){G.summoned=false;if(G.nosum===G.n)G.nosum=0;if(G.nosp===G.n)G.nosp=0}
+  if(AD.sw.atk)P(v).field.forEach(m=>{if(m){m.atkd=false;m.noatk=0}})}
+
 // ===== Inicio =====
 $('#bPlay').onclick=startDuel;
 $('#bCont').onclick=()=>{G=SAVED;SAVED=null;G.curtain=true;uid=1e6;shown=[P(0).lp,P(1).lp];$('#menu').hidden=true;render()};
@@ -1070,7 +1308,10 @@ $('#bSave').onclick=()=>{if(mainN(BD)<40)return say('El mazo principal necesita 
 $('#q').oninput=$('#flt').onchange=drawB;
 $('#nextBtn').onclick=nextPhase;$('#endBtn').onclick=endTurn;
 $('#logBtn').onclick=()=>$('#logPanel').toggleAttribute('hidden');
-$('#muteBtn').onclick=e=>{mute=!mute;e.target.textContent=mute?'🔇':'🔊'};
+let mTap=[];
+$('#muteBtn').onclick=e=>{const n=Date.now();mTap=mTap.filter(x=>n-x<1200);mTap.push(n);
+  if(mTap.length>=3){mTap=[];admGate();return}
+  mute=!mute;e.currentTarget.textContent=mute?'🔇':'🔊'};
 $('#restartBtn').onclick=()=>{if(online()){if(confirm('¿Salir de la partida online?'))location.reload();return}if(G&&!G.over)try{SAVED=JSON.parse(JSON.stringify(G))}catch(e){}showMenu()};
 document.addEventListener('contextmenu',e=>e.preventDefault());
 buildBoard();loadDecks();
